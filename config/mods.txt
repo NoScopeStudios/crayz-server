@@ -1,0 +1,7 @@
+# CrayZ mod list
+#
+# Format to be implemented later:
+# WORKSHOP_ID|@LocalModFolderName
+#
+# Example:
+# 1559212036|@CF

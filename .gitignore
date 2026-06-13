@@ -1,0 +1,22 @@
+# Runtime server data
+data/server/*
+data/profiles/*
+data/workshop/*
+data/logs/*
+
+# Keep folder placeholders
+!data/server/.gitkeep
+!data/profiles/.gitkeep
+!data/workshop/.gitkeep
+!data/logs/.gitkeep
+
+# Secrets / local environment
+.env
+steam-credentials.env
+*.secret
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
