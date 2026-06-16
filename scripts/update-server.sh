@@ -29,24 +29,27 @@ steamcmd_binary() {
 write_login_commands() {
   local command_file="$1"
 
-  if [[ -n "${STEAM_USERNAME:-}" || -n "${STEAM_PASSWORD:-}" || -n "${STEAM_GUARD_CODE:-}" ]]; then
-    if [[ "$ALLOW_CREDENTIAL_LOGIN" != "1" ]]; then
-      fail "Steam credentials were provided, but credentialed login is disabled. Leave them empty for anonymous login or set DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1 after validating the strategy locally."
-    fi
-
-    # Credentialed Steam login for the DayZ server app still needs validation.
-    # Keep this command file temporary and never echo its contents.
-    # SteamCMD itself may print account-identifying status lines, so anonymous is the default lab path.
-    {
-      printf 'login "%s" "%s"' "${STEAM_USERNAME:-}" "${STEAM_PASSWORD:-}"
-      if [[ -n "${STEAM_GUARD_CODE:-}" ]]; then
-        printf ' "%s"' "$STEAM_GUARD_CODE"
-      fi
-      printf '\n'
-    } >> "$command_file"
-  else
-    printf 'login anonymous\n' >> "$command_file"
+  if [[ "$ALLOW_CREDENTIAL_LOGIN" != "1" ]]; then
+    fail "Credentialed SteamCMD login is required. Set DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1 in your local .env after adding Steam credentials."
   fi
+
+  if [[ -z "${STEAM_USERNAME:-}" ]]; then
+    fail "STEAM_USERNAME is required for DayZ Dedicated Server installation."
+  fi
+
+  if [[ -z "${STEAM_PASSWORD:-}" ]]; then
+    fail "STEAM_PASSWORD is required for DayZ Dedicated Server installation."
+  fi
+
+  # Anonymous SteamCMD login is intentionally unsupported for CrayZ.
+  # Keep this command file temporary and never echo its contents.
+  {
+    printf 'login "%s" "%s"' "$STEAM_USERNAME" "$STEAM_PASSWORD"
+    if [[ -n "${STEAM_GUARD_CODE:-}" ]]; then
+      printf ' "%s"' "$STEAM_GUARD_CODE"
+    fi
+    printf '\n'
+  } >> "$command_file"
 }
 
 main() {

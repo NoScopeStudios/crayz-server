@@ -15,6 +15,7 @@
 - Prefer explicit, readable Bash over clever shell tricks.
 - Do not commit Steam credentials.
 - Do not bake Steam credentials into Docker images.
+- Do not use anonymous SteamCMD login; CrayZ intentionally requires credentialed SteamCMD login for DayZ server install/update.
 - Do not commit downloaded server files, workshop files, profiles, or logs.
 - Keep first milestone focused on vanilla server boot.
 - Add mod support only after vanilla install/start flow works.

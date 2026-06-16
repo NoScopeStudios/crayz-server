@@ -11,6 +11,7 @@ Experimental Docker Compose lab for creating a reliable, Unix-friendly DayZ Dedi
 - Support vanilla server startup first.
 - Add Workshop mod support in a later milestone.
 - Keep Steam credentials out of Git.
+- Use credentialed SteamCMD login for the first working install/update path.
 
 ## Non-Goals For First Milestone
 
@@ -40,3 +41,5 @@ docs/
 ## Safety Notes
 
 Do not commit Steam credentials, downloaded server files, workshop content, logs, or private server data.
+
+Copy `.env.example` to `.env` for local runtime values. A normal Steam account login is required for SteamCMD; anonymous SteamCMD login is intentionally not supported by CrayZ. Never commit `.env`.
