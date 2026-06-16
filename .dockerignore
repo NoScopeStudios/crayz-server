@@ -1,0 +1,12 @@
+.git
+.env
+steam-credentials.env
+*.secret
+
+data/server
+data/profiles
+data/workshop
+data/logs
+
+.vscode
+.idea

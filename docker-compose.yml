@@ -1,0 +1,32 @@
+services:
+  dayz:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: crayz/dayz-server:local
+    container_name: crayz-dayz
+    environment:
+      DAYZ_SERVER_NAME: "${DAYZ_SERVER_NAME:-CrayZ Test Server}"
+      DAYZ_SERVER_PORT: "${DAYZ_SERVER_PORT:-2302}"
+      DAYZ_SERVER_CONFIG: "${DAYZ_SERVER_CONFIG:-serverDZ.cfg}"
+      DAYZ_STEAM_APP_ID: "${DAYZ_STEAM_APP_ID:-223350}"
+      DAYZ_VALIDATE_INSTALL: "${DAYZ_VALIDATE_INSTALL:-1}"
+      DAYZ_AUTO_UPDATE: "${DAYZ_AUTO_UPDATE:-1}"
+      DAYZ_EXTRA_ARGS: "${DAYZ_EXTRA_ARGS:-}"
+      # Credentialed SteamCMD login for DayZ still needs validation.
+      # Keep these empty for the vanilla lab path; anonymous login is used by default.
+      STEAM_USERNAME: "${STEAM_USERNAME:-}"
+      STEAM_PASSWORD: "${STEAM_PASSWORD:-}"
+      STEAM_GUARD_CODE: "${STEAM_GUARD_CODE:-}"
+      DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN: "${DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN:-0}"
+    ports:
+      - "${DAYZ_SERVER_PORT:-2302}:${DAYZ_SERVER_PORT:-2302}/udp"
+      - "${DAYZ_STEAM_QUERY_PORT:-27016}:27016/udp"
+    volumes:
+      - ./data/server:/dayz/server
+      - ./data/profiles:/dayz/profiles
+      - ./data/logs:/dayz/logs
+      - ./config:/dayz/config:ro
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
