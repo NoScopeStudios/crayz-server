@@ -56,14 +56,25 @@ Steam state is persisted under `data/steam/` and mounted into the `dayz` user's 
 
 ## OMV / GHCR Deployment
 
-Use `docker-compose.yml` for local development builds. For OpenMediaVault or another host that should pull the prebuilt development image, use `compose.ghcr.yml`.
+Use `docker-compose.yml` for local development builds. For OpenMediaVault or another host that should pull the prebuilt development image, use the files in `deploy/`.
+
+First deployment flow:
+
+1. Create a deployment folder on the host.
+2. Copy `deploy/docker-compose.yml` into that folder.
+3. Copy `deploy/.env.example` to `.env` in that folder.
+4. Edit `.env` and set the Steam login values.
+5. Pull the image.
+6. Start the container.
 
 ```bash
-docker compose -f compose.ghcr.yml pull
-docker compose -f compose.ghcr.yml up -d
+docker compose pull
+docker compose up -d
 ```
 
-The GHCR layout uses `ghcr.io/noscopestudios/crayz-dayz-server:dev` and keeps the same persistent folders as local Compose, including `data/steam/` for Steam login/session state.
+The deployment Compose uses `ghcr.io/noscopestudios/crayz-dayz-server:dev` and keeps runtime state beside the Compose file. On first startup, the container creates `config/serverDZ.cfg` and `config/mods.txt` if they are missing. Existing config files are preserved.
+
+The same persistent folders are used for local Compose and deployment Compose, including `data/steam/` for Steam login/session state.
 
 ## Safety Notes
 

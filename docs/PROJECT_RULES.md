@@ -24,6 +24,8 @@
 - Preserve Unix file permissions and avoid root-owned persistent files where possible.
 - Use Docker Compose for the default local workflow.
 - Keep scripts small and purpose-specific.
+- Deployment Compose files must mount config writable when first-run seeding is enabled.
+- Entrypoint first-run seeding must never overwrite user-edited config files.
 
 ## Milestone Order
 

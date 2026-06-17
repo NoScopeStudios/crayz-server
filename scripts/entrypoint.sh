@@ -19,7 +19,79 @@ fail() {
 }
 
 ensure_directories() {
-  mkdir -p "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR"
+  mkdir -p "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR"
+}
+
+write_default_server_config() {
+  local target_config="$1"
+
+  cat > "$target_config" <<'EOF'
+// CrayZ - default vanilla DayZ server config
+// This file was created automatically on first startup.
+// Edit it locally; CrayZ will not overwrite an existing config file.
+
+hostname = "CrayZ Test Server";
+password = "";
+passwordAdmin = "ChangeThisAdminPassword";
+maxPlayers = 10;
+
+verifySignatures = 2;
+forceSameBuild = 1;
+
+disableVoN = 0;
+vonCodecQuality = 20;
+
+persistent = 1;
+timeStampFormat = "Short";
+
+serverTime = "SystemTime";
+serverTimeAcceleration = 1;
+serverNightTimeAcceleration = 1;
+
+class Missions
+{
+    class DayZ
+    {
+        template = "dayzOffline.chernarusplus";
+    };
+};
+EOF
+}
+
+seed_server_config_if_missing() {
+  local default_config="$CONFIG_DIR/serverDZ.cfg"
+  local selected_config="$CONFIG_DIR/$SERVER_CONFIG"
+
+  if [[ ! -f "$default_config" ]]; then
+    log "Creating default vanilla DayZ server config at $default_config."
+    write_default_server_config "$default_config"
+  fi
+
+  if [[ "$selected_config" != "$default_config" && ! -f "$selected_config" ]]; then
+    log "Creating selected DayZ server config at $selected_config."
+    write_default_server_config "$selected_config"
+  fi
+}
+
+seed_mods_file_if_missing() {
+  local target_mods="$CONFIG_DIR/mods.txt"
+
+  if [[ -f "$target_mods" ]]; then
+    return 0
+  fi
+
+  log "Creating default empty mod list at $target_mods."
+
+  cat > "$target_mods" <<'EOF'
+# CrayZ mod list
+#
+# Workshop mod support is intentionally not implemented yet.
+# Future format:
+# WORKSHOP_ID|@LocalModFolderName
+#
+# Example:
+# 1559212036|@CF
+EOF
 }
 
 copy_config_if_present() {
@@ -53,6 +125,8 @@ find_server_binary() {
 }
 
 ensure_directories
+seed_server_config_if_missing
+seed_mods_file_if_missing
 
 if [[ "$AUTO_UPDATE" == "1" ]]; then
   log "Installing/updating DayZ Dedicated Server with SteamCMD."
