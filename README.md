@@ -72,7 +72,7 @@ docker compose pull
 docker compose up -d
 ```
 
-The deployment Compose uses `ghcr.io/noscopestudios/crayz-dayz-server:dev` and keeps runtime state beside the Compose file. On first startup, the container creates `config/serverDZ.cfg` and `config/mods.txt` if they are missing. Existing config files are preserved.
+The deployment Compose uses `ghcr.io/noscopestudios/crayz-server:latest` and keeps runtime state beside the Compose file. On first startup, the container creates `config/serverDZ.cfg` and `config/mods.txt` if they are missing. Existing config files are preserved.
 
 The same persistent folders are used for local Compose and deployment Compose, including `data/steam/` for Steam login/session state.
 
