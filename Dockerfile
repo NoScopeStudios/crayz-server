@@ -22,12 +22,25 @@ RUN apt-get update \
         tini \
     && rm -rf /var/lib/apt/lists/*
 
-RUN groupadd --gid "${DAYZ_GID}" dayz \
-    && useradd --uid "${DAYZ_UID}" --gid "${DAYZ_GID}" --create-home --shell /bin/bash dayz \
-    && mkdir -p "${STEAMCMD_ROOT}" "${DAYZ_SERVER_DIR}" "${DAYZ_PROFILE_DIR}" "${DAYZ_LOG_DIR}" "${DAYZ_CONFIG_DIR}" \
+RUN set -eux; \
+    if ! getent group dayz >/dev/null; then \
+        if getent group | grep -q "^[^:]*:[^:]*:${DAYZ_GID}:"; then \
+            groupadd dayz; \
+        else \
+            groupadd --gid "${DAYZ_GID}" dayz; \
+        fi; \
+    fi; \
+    if ! id -u dayz >/dev/null 2>&1; then \
+        if getent passwd | grep -q "^[^:]*:[^:]*:${DAYZ_UID}:"; then \
+            useradd --gid dayz --create-home --shell /bin/bash dayz; \
+        else \
+            useradd --uid "${DAYZ_UID}" --gid dayz --create-home --shell /bin/bash dayz; \
+        fi; \
+    fi; \
+    mkdir -p /home/dayz "${STEAMCMD_ROOT}" "${DAYZ_SERVER_DIR}" "${DAYZ_PROFILE_DIR}" "${DAYZ_LOG_DIR}" "${DAYZ_CONFIG_DIR}" \
     && curl -fsSL https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
         | tar -xz -C "${STEAMCMD_ROOT}" \
-    && chown -R dayz:dayz "${STEAMCMD_ROOT}" /dayz
+    && chown -R dayz:dayz /home/dayz "${STEAMCMD_ROOT}" /dayz
 
 COPY --chown=dayz:dayz scripts/entrypoint.sh /usr/local/bin/dayz-entrypoint
 COPY --chown=dayz:dayz scripts/update-server.sh /usr/local/bin/dayz-update-server
