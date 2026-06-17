@@ -15,3 +15,17 @@ Pull example:
 ```bash
 docker pull ghcr.io/noscopestudios/crayz-server:latest
 ```
+
+End-user Compose deployment uses the root `docker-compose.yml`:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Local development builds use `docker-compose.local.yml`:
+
+```bash
+docker compose -f docker-compose.local.yml build
+docker compose -f docker-compose.local.yml up -d
+```

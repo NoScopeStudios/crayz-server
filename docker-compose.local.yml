@@ -1,6 +1,9 @@
 services:
   dayz:
-    image: ghcr.io/noscopestudios/crayz-server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: crayz/dayz-server:local
     container_name: crayz-dayz
     env_file:
       - path: .env
