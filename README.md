@@ -54,7 +54,7 @@ For the first login:
 
 Steam state is persisted under `data/steam/` and mounted into the `dayz` user's home directory. Do not commit `.env`, downloaded server files, logs, or Steam runtime state.
 
-## OMV / GHCR Deployment
+## Docker Compose / OMV - GHCR Deployment
 
 Use `docker-compose.yml` for local development builds. For OpenMediaVault or another host that should pull the prebuilt development image, use the files in `deploy/`.
 
@@ -76,7 +76,7 @@ The deployment Compose uses `ghcr.io/noscopestudios/crayz-dayz-server:dev` and k
 
 The same persistent folders are used for local Compose and deployment Compose, including `data/steam/` for Steam login/session state.
 
-## OMV Permissions
+## Docker Compose / OMV Permissions
 
 CrayZ supports `PUID` and `PGID` so files created in bind-mounted folders belong to the expected Linux host user instead of root or an arbitrary container id.
 
@@ -89,7 +89,7 @@ id yourusername
 Example output:
 
 ```text
-uid=1000(marcel) gid=1000(marcel) groups=1000(marcel),100(users)
+uid=1000(username) gid=1000(docker) groups=1000(docker),100(users)
 ```
 
 Use those values in `.env`:
