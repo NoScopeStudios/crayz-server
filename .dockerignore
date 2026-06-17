@@ -7,6 +7,7 @@ data/server
 data/profiles
 data/workshop
 data/logs
+data/steam
 
 .vscode
 .idea

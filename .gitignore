@@ -3,12 +3,18 @@ data/server/*
 data/profiles/*
 data/workshop/*
 data/logs/*
+data/steam/*
 
 # Keep folder placeholders
 !data/server/.gitkeep
 !data/profiles/.gitkeep
 !data/workshop/.gitkeep
 !data/logs/.gitkeep
+!data/steam/
+!data/steam/dot-steam/
+!data/steam/dot-steam/.gitkeep
+!data/steam/Steam/
+!data/steam/Steam/.gitkeep
 
 # Secrets / local environment
 .env
