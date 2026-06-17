@@ -22,6 +22,8 @@
 - Add mod support only after vanilla install/start flow works.
 - Make failure messages human-readable.
 - Preserve Unix file permissions and avoid root-owned persistent files where possible.
+- Support `PUID`/`PGID` for Linux bind mounts and drop privileges before running SteamCMD or DayZ.
+- Avoid expensive recursive ownership changes on large persistent runtime folders during startup.
 - Use Docker Compose for the default local workflow.
 - Keep scripts small and purpose-specific.
 - Deployment Compose files must mount config writable when first-run seeding is enabled.

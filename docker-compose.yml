@@ -16,6 +16,8 @@ services:
       DAYZ_VALIDATE_INSTALL: "${DAYZ_VALIDATE_INSTALL:-1}"
       DAYZ_AUTO_UPDATE: "${DAYZ_AUTO_UPDATE:-1}"
       DAYZ_EXTRA_ARGS: "${DAYZ_EXTRA_ARGS:-}"
+      PUID: "${PUID:-1000}"
+      PGID: "${PGID:-1000}"
       # Credentialed SteamCMD login is required; anonymous login is unsupported.
       # Keep real Steam credentials only in local .env and never commit them.
       DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN: "${DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN:-0}"

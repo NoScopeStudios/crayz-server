@@ -76,6 +76,31 @@ The deployment Compose uses `ghcr.io/noscopestudios/crayz-dayz-server:dev` and k
 
 The same persistent folders are used for local Compose and deployment Compose, including `data/steam/` for Steam login/session state.
 
+## OMV Permissions
+
+CrayZ supports `PUID` and `PGID` so files created in bind-mounted folders belong to the expected Linux host user instead of root or an arbitrary container id.
+
+On the OMV/Linux host, find the ids for the user that should own the server files:
+
+```bash
+id yourusername
+```
+
+Example output:
+
+```text
+uid=1000(marcel) gid=1000(marcel) groups=1000(marcel),100(users)
+```
+
+Use those values in `.env`:
+
+```env
+PUID=1000
+PGID=1000
+```
+
+At startup the container prepares the `dayz` user/group with those ids, checks the mounted runtime folders, then drops privileges before running SteamCMD or the DayZ server.
+
 ## Safety Notes
 
 Do not commit Steam credentials, downloaded server files, workshop content, logs, or private server data.

@@ -15,6 +15,7 @@ RUN apt-get update \
         bash \
         ca-certificates \
         curl \
+        gosu \
         lib32gcc-s1 \
         libc6-i386 \
         libstdc++6 \
@@ -33,7 +34,6 @@ COPY --chown=dayz:dayz scripts/update-server.sh /usr/local/bin/dayz-update-serve
 
 RUN chmod 0755 /usr/local/bin/dayz-entrypoint /usr/local/bin/dayz-update-server
 
-USER dayz
 WORKDIR /dayz/server
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/dayz-entrypoint"]

@@ -8,6 +8,12 @@ CONFIG_DIR="${DAYZ_CONFIG_DIR:-/dayz/config}"
 SERVER_CONFIG="${DAYZ_SERVER_CONFIG:-serverDZ.cfg}"
 SERVER_PORT="${DAYZ_SERVER_PORT:-2302}"
 AUTO_UPDATE="${DAYZ_AUTO_UPDATE:-1}"
+STEAMCMD_ROOT="${STEAMCMD_ROOT:-/opt/steamcmd}"
+PUID="${PUID:-1000}"
+PGID="${PGID:-1000}"
+DAYZ_HOME="/home/dayz"
+STEAM_DOT_DIR="$DAYZ_HOME/.steam"
+STEAM_HOME_DIR="$DAYZ_HOME/Steam"
 
 log() {
   printf '[crayz] %s\n' "$*"
@@ -19,7 +25,86 @@ fail() {
 }
 
 ensure_directories() {
-  mkdir -p "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR"
+  mkdir -p "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"
+}
+
+require_root() {
+  if [[ "$(id -u)" != "0" ]]; then
+    fail "Entrypoint must start as root so it can apply PUID/PGID ownership before dropping privileges."
+  fi
+}
+
+validate_id() {
+  local name="$1"
+  local value="$2"
+
+  if [[ ! "$value" =~ ^[0-9]+$ ]]; then
+    fail "$name must be a numeric Linux id, got '$value'."
+  fi
+}
+
+ensure_dayz_group() {
+  local current_gid
+  local group_for_gid
+
+  group_for_gid="$(getent group "$PGID" | cut -d: -f1 || true)"
+
+  if getent group dayz >/dev/null; then
+    current_gid="$(getent group dayz | cut -d: -f3)"
+    if [[ "$current_gid" != "$PGID" ]]; then
+      if [[ -n "$group_for_gid" && "$group_for_gid" != "dayz" ]]; then
+        fail "PGID $PGID is already used by group '$group_for_gid'. Choose another PGID or adjust the image."
+      fi
+      groupmod -g "$PGID" dayz
+    fi
+  else
+    if [[ -n "$group_for_gid" ]]; then
+      fail "PGID $PGID is already used by group '$group_for_gid'. Cannot create required dayz group."
+    fi
+    groupadd --gid "$PGID" dayz
+  fi
+}
+
+ensure_dayz_user() {
+  local current_uid
+  local user_for_uid
+
+  user_for_uid="$(getent passwd "$PUID" | cut -d: -f1 || true)"
+
+  if id dayz >/dev/null 2>&1; then
+    current_uid="$(id -u dayz)"
+    if [[ "$current_uid" != "$PUID" ]]; then
+      if [[ -n "$user_for_uid" && "$user_for_uid" != "dayz" ]]; then
+        fail "PUID $PUID is already used by user '$user_for_uid'. Choose another PUID or adjust the image."
+      fi
+      usermod -u "$PUID" dayz
+    fi
+    usermod -g dayz -d "$DAYZ_HOME" -s /bin/bash dayz
+  else
+    if [[ -n "$user_for_uid" ]]; then
+      fail "PUID $PUID is already used by user '$user_for_uid'. Cannot create required dayz user."
+    fi
+    useradd --uid "$PUID" --gid dayz --home-dir "$DAYZ_HOME" --create-home --shell /bin/bash dayz
+  fi
+}
+
+prepare_permissions() {
+  ensure_directories
+
+  # Only the small image-managed SteamCMD install is recursively owned. Bind
+  # mounts are limited to top-level ownership to avoid expensive startup scans.
+  chown -R dayz:dayz "$STEAMCMD_ROOT"
+  chown dayz:dayz "$DAYZ_HOME"
+  chown dayz:dayz /dayz "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"
+}
+
+configure_runtime_user() {
+  require_root
+  validate_id PUID "$PUID"
+  validate_id PGID "$PGID"
+  ensure_dayz_group
+  ensure_dayz_user
+  prepare_permissions
 }
 
 write_default_server_config() {
@@ -123,6 +208,13 @@ find_server_binary() {
 
   return 1
 }
+
+if [[ "${1:-}" != "run-as-dayz" ]]; then
+  configure_runtime_user
+  exec gosu dayz /usr/local/bin/dayz-entrypoint run-as-dayz
+fi
+
+shift
 
 ensure_directories
 seed_server_config_if_missing
