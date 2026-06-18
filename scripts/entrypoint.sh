@@ -179,6 +179,7 @@ hostname = "CrayZ Test Server";
 password = "";
 passwordAdmin = "ChangeThisAdminPassword";
 maxPlayers = 10;
+instanceId = 1;
 
 verifySignatures = 2;
 forceSameBuild = 1;

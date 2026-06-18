@@ -463,6 +463,14 @@ Make sure the `config/` folder is mounted writable.
 
 The container cannot create default config files if the config mount is read-only.
 
+### DayZ reports missing instanceId
+
+Fresh CrayZ configs include `instanceId = 1;`. If DayZ logs `instanceId parameter is mandatory`, your existing `config/serverDZ.cfg` was created before this default was added or was edited manually. Add this line near the other top-level server settings:
+
+```cpp
+instanceId = 1;
+```
+
 ### DayZ server executable is missing
 
 SteamCMD may not have completed the install/update.
