@@ -83,11 +83,13 @@ nano .env
 At minimum, set:
 
 ```env
-STEAM_USERNAME=your_steam_username
-STEAM_PASSWORD=your_steam_password
+STEAM_USERNAME=
+STEAM_PASSWORD=
 STEAM_GUARD_CODE=
 DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1
 ```
+
+Fill `STEAM_USERNAME` and `STEAM_PASSWORD` only in your private `.env`.
 
 Then pull and start the image:
 
@@ -205,7 +207,7 @@ PGID=1000
 STEAM_USERNAME=
 STEAM_PASSWORD=
 STEAM_GUARD_CODE=
-DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=0
+DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1
 
 DAYZ_SERVER_PORT=2302
 DAYZ_STEAM_QUERY_PORT=27016
@@ -226,7 +228,7 @@ CrayZ uses `0` for **disabled** and `1` for **enabled** on toggle-style settings
 | `STEAM_USERNAME` | empty | Steam account username used by SteamCMD. Required when `DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1`. |
 | `STEAM_PASSWORD` | empty | Steam account password used by SteamCMD. Required when `DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1`. Never commit this value. |
 | `STEAM_GUARD_CODE` | empty | Optional Steam Guard verification code. Leave empty unless Steam gives you a code. If Steam asks for mobile approval instead, approve the login in the Steam mobile app and leave this empty. |
-| `DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN` | `0` | Safety switch for SteamCMD login. `0` blocks credentialed Steam login. `1` allows CrayZ to use `STEAM_USERNAME`, `STEAM_PASSWORD`, and optional `STEAM_GUARD_CODE` for SteamCMD login. |
+| `DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN` | `1` | SteamCMD credential-login toggle. See notes below for toggle values and testing guidance. |
 | `DAYZ_SERVER_NAME` | `CrayZ Test Server` | Friendly server name used by CrayZ defaults. The visible DayZ server name is normally controlled by `config/serverDZ.cfg`. |
 | `DAYZ_SERVER_PORT` | `2302` | UDP game port exposed by Docker and passed to the DayZ server. |
 | `DAYZ_STEAM_QUERY_PORT` | `27016` | UDP Steam server browser query port exposed by Docker. |
@@ -246,6 +248,13 @@ DAYZ_EXTRA_ARGS=
 ```
 
 Use `DAYZ_AUTO_UPDATE=0` only when you intentionally want to prevent CrayZ from checking Steam for server updates during container startup.
+
+`DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN` values:
+
+* `0` means disabled; CrayZ blocks credentialed SteamCMD login.
+* `1` means enabled; CrayZ may use `STEAM_USERNAME`, `STEAM_PASSWORD`, and optional `STEAM_GUARD_CODE`.
+
+The default is `1`. Set it to `0` only when intentionally testing config generation or startup behavior without allowing Steam login.
 
 Never commit `.env`.
 
@@ -350,7 +359,6 @@ Do not commit or share:
 Safe to commit:
 
 * `.env.example`
-* `deploy/.env.example`
 * Compose files
 * scripts
 * documentation
