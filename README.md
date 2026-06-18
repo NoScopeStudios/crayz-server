@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/crayz-logo_cr.jpg" alt="CrayZ logo" width="420">
+  <img src="assets/crayz_logo_cr.jpg" alt="CrayZ logo" width="420">
 </p>
 
 # CrayZ
