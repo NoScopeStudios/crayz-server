@@ -11,10 +11,11 @@ AUTO_UPDATE="${DAYZ_AUTO_UPDATE:-1}"
 STEAMCMD_ROOT="${STEAMCMD_ROOT:-/opt/steamcmd}"
 PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
-DAYZ_HOME="/home/dayz"
-STEAM_DOT_DIR="$DAYZ_HOME/.steam"
-STEAM_HOME_DIR="$DAYZ_HOME/Steam"
-DAYZ_RUNTIME_GROUP="dayz"
+DAYZ_HOME="${DAYZ_HOME:-/home/dayz}"
+STEAM_DOT_DIR=""
+STEAM_HOME_DIR=""
+DAYZ_RUNTIME_USER="${DAYZ_RUNTIME_USER:-dayz}"
+DAYZ_RUNTIME_GROUP="${DAYZ_RUNTIME_GROUP:-dayz}"
 
 log() {
   printf '[crayz] %s\n' "$*"
@@ -26,6 +27,8 @@ fail() {
 }
 
 ensure_directories() {
+  STEAM_DOT_DIR="$DAYZ_HOME/.steam"
+  STEAM_HOME_DIR="$DAYZ_HOME/Steam"
   mkdir -p "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"
 }
 
@@ -68,27 +71,49 @@ ensure_dayz_group() {
 
 ensure_dayz_user() {
   local current_uid
+  local current_primary_group
+  local existing_home
   local user_for_uid
 
   user_for_uid="$(getent passwd "$PUID" | cut -d: -f1 || true)"
 
-  if id dayz >/dev/null 2>&1; then
+  if [[ -n "$user_for_uid" && "$user_for_uid" != "dayz" ]]; then
+    DAYZ_RUNTIME_USER="$user_for_uid"
+    current_primary_group="$(id -gn "$DAYZ_RUNTIME_USER")"
+    if [[ "$current_primary_group" != "$DAYZ_RUNTIME_GROUP" ]]; then
+      if usermod -g "$DAYZ_RUNTIME_GROUP" "$DAYZ_RUNTIME_USER"; then
+        log "Updated existing user '$DAYZ_RUNTIME_USER' primary group to '$DAYZ_RUNTIME_GROUP'."
+      else
+        log "Could not update existing user '$DAYZ_RUNTIME_USER' primary group from '$current_primary_group' to '$DAYZ_RUNTIME_GROUP'; mounted path writability will be checked before startup continues."
+      fi
+    fi
+
+    if usermod -d "$DAYZ_HOME" -s /bin/bash "$DAYZ_RUNTIME_USER"; then
+      log "Using '$DAYZ_HOME' as home for existing user '$DAYZ_RUNTIME_USER'."
+    else
+      existing_home="$(getent passwd "$DAYZ_RUNTIME_USER" | cut -d: -f6)"
+      if [[ -n "$existing_home" ]]; then
+        DAYZ_HOME="$existing_home"
+        log "Could not update home for existing user '$DAYZ_RUNTIME_USER'; using existing home '$DAYZ_HOME'."
+      else
+        fail "Existing user '$DAYZ_RUNTIME_USER' does not have a usable home directory."
+      fi
+    fi
+
+    log "Using existing user '$DAYZ_RUNTIME_USER' for PUID $PUID."
+  elif id dayz >/dev/null 2>&1; then
+    DAYZ_RUNTIME_USER="dayz"
     current_uid="$(id -u dayz)"
     if [[ "$current_uid" != "$PUID" ]]; then
-      if [[ -n "$user_for_uid" && "$user_for_uid" != "dayz" ]]; then
-        fail "PUID $PUID is already used by user '$user_for_uid'. Choose another PUID or adjust the image."
-      fi
       usermod -u "$PUID" dayz
     fi
     usermod -g "$DAYZ_RUNTIME_GROUP" -d "$DAYZ_HOME" -s /bin/bash dayz
   else
-    if [[ -n "$user_for_uid" ]]; then
-      fail "PUID $PUID is already used by user '$user_for_uid'. Cannot create required dayz user."
-    fi
+    DAYZ_RUNTIME_USER="dayz"
     useradd --uid "$PUID" --gid "$DAYZ_RUNTIME_GROUP" --home-dir "$DAYZ_HOME" --create-home --shell /bin/bash dayz
   fi
 
-  log "Using user 'dayz' with PUID $PUID and group '$DAYZ_RUNTIME_GROUP' (PGID $PGID)."
+  log "Runtime user/group selected: '$DAYZ_RUNTIME_USER' (PUID $PUID) / '$DAYZ_RUNTIME_GROUP' (PGID $PGID)."
 }
 
 prepare_permissions() {
@@ -96,9 +121,19 @@ prepare_permissions() {
 
   # Only the small image-managed SteamCMD install is recursively owned. Bind
   # mounts are limited to top-level ownership to avoid expensive startup scans.
-  chown -R dayz:"$DAYZ_RUNTIME_GROUP" "$STEAMCMD_ROOT"
-  chown dayz:"$DAYZ_RUNTIME_GROUP" "$DAYZ_HOME"
-  chown dayz:"$DAYZ_RUNTIME_GROUP" /dayz "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"
+  chown -R "$DAYZ_RUNTIME_USER":"$DAYZ_RUNTIME_GROUP" "$STEAMCMD_ROOT"
+  chown "$DAYZ_RUNTIME_USER":"$DAYZ_RUNTIME_GROUP" "$DAYZ_HOME"
+  chown "$DAYZ_RUNTIME_USER":"$DAYZ_RUNTIME_GROUP" /dayz "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"
+}
+
+assert_runtime_writable() {
+  local path
+
+  for path in "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"; do
+    if [[ ! -w "$path" ]]; then
+      fail "Runtime user '$(id -un)' cannot write to $path. Check PUID=$PUID, PGID=$PGID, and host bind-mount ownership."
+    fi
+  done
 }
 
 configure_runtime_user() {
@@ -214,12 +249,14 @@ find_server_binary() {
 
 if [[ "${1:-}" != "run-as-dayz" ]]; then
   configure_runtime_user
-  exec gosu dayz /usr/local/bin/dayz-entrypoint run-as-dayz
+  export DAYZ_HOME DAYZ_RUNTIME_USER DAYZ_RUNTIME_GROUP HOME="$DAYZ_HOME"
+  exec gosu "$DAYZ_RUNTIME_USER" /usr/local/bin/dayz-entrypoint run-as-dayz
 fi
 
 shift
 
 ensure_directories
+assert_runtime_writable
 seed_server_config_if_missing
 seed_mods_file_if_missing
 
