@@ -6,6 +6,7 @@ SERVER_DIR="${DAYZ_SERVER_DIR:-/dayz/server}"
 APP_ID="${DAYZ_STEAM_APP_ID:-223350}"
 VALIDATE_INSTALL="${DAYZ_VALIDATE_INSTALL:-1}"
 ALLOW_CREDENTIAL_LOGIN="${DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN:-1}"
+command_file=""
 
 log() {
   printf '[crayz] %s\n' "$*"
@@ -14,6 +15,12 @@ log() {
 fail() {
   printf '[crayz] ERROR: %s\n' "$*" >&2
   exit 1
+}
+
+cleanup_command_file() {
+  if [[ -n "${command_file:-}" && -e "$command_file" ]]; then
+    rm -f -- "$command_file"
+  fi
 }
 
 steamcmd_binary() {
@@ -54,11 +61,10 @@ write_login_commands() {
 main() {
   mkdir -p "$SERVER_DIR"
 
-  local command_file
+  trap cleanup_command_file EXIT
+
   command_file="$(mktemp)"
   chmod 0600 "$command_file"
-
-  trap 'rm -f "$command_file"' EXIT
 
   {
     printf 'force_install_dir "%s"\n' "$SERVER_DIR"
