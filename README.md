@@ -194,6 +194,38 @@ config/serverDZ.cfg
 config/mods.txt
 ```
 
+### Compose fallback values
+
+In the Compose files, some values are written like this:
+
+```yaml
+PUID: "${PUID:-1000}"
+PGID: "${PGID:-1000}"
+```
+
+This means:
+
+```text
+Use the value from `.env` when it exists.
+If the value is missing or empty, use the fallback value after `:-`.
+```
+
+Example `.env` values:
+
+```env
+PUID=1000
+PGID=4
+```
+
+With that `.env`, Docker Compose resolves the container environment as:
+
+```yaml
+PUID: "1000"
+PGID: "4"
+```
+
+The fallback values in Compose are only used when the variable is not set in `.env` or the host environment.
+
 ### `.env`
 
 Private runtime settings.
