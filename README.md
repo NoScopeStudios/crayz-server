@@ -123,9 +123,10 @@ Steam login/session state is stored persistently under:
 
 ```text
 data/steam/
+data/steam-home/
 ```
 
-This helps prevent Steam Guard from being required again every time the container is recreated.
+These folders map to `/home/dayz/Steam` and `/home/dayz/.steam` inside the container. Keeping both paths persistent helps prevent Steam Guard from being required again every time the container is recreated.
 
 Do not commit or share your `.env` file.
 
@@ -174,6 +175,7 @@ crayz/
     profiles/
     logs/
     steam/
+    steam-home/
 ```
 
 If `config/serverDZ.cfg` does not exist, CrayZ creates a safe default vanilla server config.
@@ -394,7 +396,10 @@ data/logs/
   Server logs.
 
 data/steam/
-  SteamCMD login/session state.
+  SteamCMD login/session state for /home/dayz/Steam.
+
+data/steam-home/
+  SteamCMD login/session state for /home/dayz/.steam.
 
 config/
   User-editable configuration files.
@@ -433,7 +438,7 @@ docker compose pull
 
 ### Steam Guard keeps asking again
 
-Check that `data/steam/` is mounted and writable.
+Check that `data/steam/` and `data/steam-home/` are mounted and writable.
 
 Also verify that the container is using consistent `PUID` and `PGID` values between runs.
 
