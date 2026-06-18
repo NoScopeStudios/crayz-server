@@ -136,6 +136,28 @@ assert_runtime_writable() {
   done
 }
 
+log_credential_diagnostics() {
+  if [[ -n "${STEAM_USERNAME:-}" ]]; then
+    log "STEAM_USERNAME is set."
+  else
+    log "STEAM_USERNAME is not set."
+  fi
+
+  if [[ -n "${STEAM_PASSWORD:-}" ]]; then
+    log "STEAM_PASSWORD is set."
+  else
+    log "STEAM_PASSWORD is not set."
+  fi
+
+  if [[ -n "${STEAM_GUARD_CODE:-}" ]]; then
+    log "STEAM_GUARD_CODE is set."
+  else
+    log "STEAM_GUARD_CODE is not set."
+  fi
+
+  log "DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=${DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN:-1}."
+}
+
 configure_runtime_user() {
   require_root
   validate_id PUID "$PUID"
@@ -259,6 +281,7 @@ ensure_directories
 assert_runtime_writable
 seed_server_config_if_missing
 seed_mods_file_if_missing
+log_credential_diagnostics
 
 if [[ "$AUTO_UPDATE" == "1" ]]; then
   log "Installing/updating DayZ Dedicated Server with SteamCMD."

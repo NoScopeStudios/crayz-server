@@ -60,18 +60,16 @@ Anonymous SteamCMD login is intentionally not supported by CrayZ.
 
 ## Quick Start - GHCR Deployment
 
-Create a folder for CrayZ on your Docker host:
+Clone or copy this repository onto your Docker host, then enter the repo folder:
 
 ```bash
-mkdir -p crayz
 cd crayz
 ```
 
-Copy the deployment Compose file and environment example from the repository:
+Create your private environment file:
 
 ```bash
-cp deploy/docker-compose.yml docker-compose.yml
-cp deploy/.env.example .env
+cp .env.example .env
 ```
 
 Edit `.env`:
@@ -130,6 +128,33 @@ data/steam/
 This helps prevent Steam Guard from being required again every time the container is recreated.
 
 Do not commit or share your `.env` file.
+
+## OpenMediaVault Named Stack Files
+
+Normal Docker Compose usage expects:
+
+```text
+docker-compose.yml
+.env
+```
+
+OpenMediaVault may store stacks with names such as:
+
+```text
+crayz.yml
+crayz.env
+```
+
+That layout works when Compose is told which env file to use:
+
+```bash
+docker compose -f crayz.yml --env-file crayz.env config
+docker compose -f crayz.yml --env-file crayz.env up
+```
+
+For OMV, copy or paste the root `docker-compose.yml` contents into `crayz.yml`, then copy `.env.example` to `crayz.env` and edit only `crayz.env` with your local values.
+
+The Compose files pass CrayZ runtime variables explicitly through `environment:`. This makes values from `.env`, `crayz.env`, or the shell visible inside the container. The optional `env_file: .env` entry is kept for the default filename/layout only; named OMV files still need `--env-file crayz.env`.
 
 ## First-Run Generated Files
 
@@ -206,7 +231,7 @@ PGID: "${PGID:-1000}"
 This means:
 
 ```text
-Use the value from `.env` when it exists.
+Use the value from `.env`, `--env-file`, or the shell when it exists.
 If the value is missing or empty, use the fallback value after `:-`.
 ```
 
@@ -224,7 +249,7 @@ PUID: "1000"
 PGID: "4"
 ```
 
-The fallback values in Compose are only used when the variable is not set in `.env` or the host environment.
+The fallback values in Compose are only used when the variable is not set in `.env`, the `--env-file` file, or the host environment.
 
 ### `.env`
 
