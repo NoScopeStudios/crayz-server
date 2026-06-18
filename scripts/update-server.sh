@@ -82,7 +82,9 @@ main() {
   } >> "$command_file"
 
   log "Running SteamCMD app update for DayZ Dedicated Server app $APP_ID."
-  "$(steamcmd_binary)" +runscript "$command_file"
+  if ! "$(steamcmd_binary)" +runscript "$command_file"; then
+    fail "SteamCMD app update failed for DayZ Dedicated Server app $APP_ID."
+  fi
   log "SteamCMD update finished."
 }
 

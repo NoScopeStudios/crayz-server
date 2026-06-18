@@ -139,7 +139,9 @@ assert_runtime_writable() {
 log_steam_state_diagnostics() {
   local path
 
-  for path in "$STEAM_HOME_DIR" "$STEAM_DOT_DIR"; do
+  log "Runtime user: $(id -un) ($(id -u)); group: $(id -gn) ($(id -g)); HOME=${HOME:-unset}."
+
+  for path in "$STEAM_HOME_DIR" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR/config" "$STEAM_HOME_DIR/logs"; do
     if [[ -d "$path" && -w "$path" ]]; then
       log "Steam state directory $path is writable."
     elif [[ -d "$path" ]]; then
@@ -308,7 +310,13 @@ fi
 
 copy_config_if_present
 
-SERVER_BINARY="$(find_server_binary)" || fail "DayZ server executable was not found after install/update."
+if ! SERVER_BINARY="$(find_server_binary)"; then
+  if [[ "$AUTO_UPDATE" == "1" ]]; then
+    fail "DayZ server executable was not found after SteamCMD install/update."
+  fi
+
+  fail "DAYZ_AUTO_UPDATE is not 1 and no DayZ server executable was found in $SERVER_DIR. Run once with DAYZ_AUTO_UPDATE=1 to install/update server files, then set it back to 0 for normal runtime."
+fi
 
 if [[ ! -x "$SERVER_BINARY" && "$SERVER_BINARY" != *.exe ]]; then
   chmod +x "$SERVER_BINARY" || fail "Could not mark server executable as runnable: $SERVER_BINARY"

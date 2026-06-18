@@ -19,6 +19,8 @@
 - Do not commit downloaded server files, workshop files, profiles, or logs.
 - Persist Steam auth/session state before adding Workshop mod support.
 - Persist both `/home/dayz/Steam` and `/home/dayz/.steam` for SteamCMD auth/session state.
+- Treat `DAYZ_AUTO_UPDATE=1` as install/update mode and `DAYZ_AUTO_UPDATE=0` as normal runtime mode.
+- Do not add SteamCMD login retry loops; repeated Steam Guard prompts are unsafe and should be handled by stopping and verifying mounts.
 - Keep first milestone focused on vanilla server boot.
 - Add mod support only after vanilla install/start flow works.
 - Make failure messages human-readable.

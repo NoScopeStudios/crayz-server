@@ -89,7 +89,7 @@ DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1
 
 Fill `STEAM_USERNAME` and `STEAM_PASSWORD` only in your private `.env`.
 
-Then pull and start the image:
+For the first install/update, keep `DAYZ_AUTO_UPDATE=1`, then pull and start the image:
 
 ```bash
 docker compose pull
@@ -98,7 +98,7 @@ docker compose up
 
 For the first run, starting in the foreground is recommended so you can watch the SteamCMD login and install process.
 
-After the first successful login and install, you can stop the container with `Ctrl+C` and later run it detached:
+After the first successful login and install, stop the container with `Ctrl+C`, set `DAYZ_AUTO_UPDATE=0` in `.env`, and start normal runtime:
 
 ```bash
 docker compose up -d
@@ -126,9 +126,36 @@ data/steam/Steam/
 data/steam/dot-steam/
 ```
 
-These folders map to `/home/dayz/Steam` and `/home/dayz/.steam` inside the container. Keeping both paths persistent helps prevent Steam Guard from being required again every time the container is recreated.
+These folders map to `/home/dayz/Steam` and `/home/dayz/.steam` inside the container. Keeping both paths persistent helps SteamCMD reuse session state, but Steam Guard persistence is not guaranteed. Normal runtime should use `DAYZ_AUTO_UPDATE=0` so restarts do not invoke SteamCMD.
 
 Do not commit or share your `.env` file.
+
+## Safe SteamCMD Operating Model
+
+CrayZ separates install/update mode from normal runtime mode.
+
+First install or manual update:
+
+1. Set `DAYZ_AUTO_UPDATE=1`.
+2. Start the container in the foreground.
+3. Approve Steam Guard if Steam asks.
+4. Wait for SteamCMD to finish successfully.
+5. Stop the container.
+6. Set `DAYZ_AUTO_UPDATE=0`.
+
+Normal runtime:
+
+1. Start or recreate the container with `DAYZ_AUTO_UPDATE=0`.
+2. Confirm logs show `Skipping SteamCMD update because DAYZ_AUTO_UPDATE is not 1.`
+3. Confirm logs show `Starting vanilla DayZ server on UDP port 2302.`
+
+Future manual update:
+
+1. Temporarily set `DAYZ_AUTO_UPDATE=1`.
+2. Run one update.
+3. Set `DAYZ_AUTO_UPDATE=0` again before normal restarts.
+
+If Steam Guard prompts repeat after a restart, stop the container. Do not keep approving repeated prompts. Verify the Steam state mounts and permissions before trying again.
 
 ## OpenMediaVault Named Stack Files
 
@@ -295,10 +322,10 @@ CrayZ uses `0` for **disabled** and `1` for **enabled** on toggle-style settings
 | `DAYZ_SERVER_CONFIG` | `serverDZ.cfg` | Config filename inside `config/` that DayZ should use. Most users should leave this as `serverDZ.cfg`. |
 | `DAYZ_STEAM_APP_ID` | `223350` | Steam app ID for the DayZ Dedicated Server. Most users should not change this. |
 | `DAYZ_VALIDATE_INSTALL` | `1` | Controls SteamCMD file validation during install/update. `1` validates server files and can repair missing or corrupted files. `0` skips validation and may be faster. |
-| `DAYZ_AUTO_UPDATE` | `1` | Controls startup update behavior. `1` runs SteamCMD install/update when the container starts. `0` skips automatic update and tries to start the existing installed server files. |
+| `DAYZ_AUTO_UPDATE` | `1` | Controls startup update behavior. `1` is install/update mode and runs SteamCMD once at container start. `0` is normal runtime mode and skips SteamCMD, then starts the existing installed server files. |
 | `DAYZ_EXTRA_ARGS` | empty | Optional extra command-line arguments appended to the DayZ server launch command. Advanced users only. |
 
-Recommended defaults for most users:
+Recommended install/update settings:
 
 ```env
 DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1
@@ -307,7 +334,13 @@ DAYZ_AUTO_UPDATE=1
 DAYZ_EXTRA_ARGS=
 ```
 
-Use `DAYZ_AUTO_UPDATE=0` only when you intentionally want to prevent CrayZ from checking Steam for server updates during container startup.
+Recommended normal runtime settings after install/update succeeds:
+
+```env
+DAYZ_AUTO_UPDATE=0
+```
+
+Use `DAYZ_AUTO_UPDATE=1` only when installing or intentionally updating server files. SteamCMD login persistence with Steam Guard is not guaranteed, so normal restarts should use `DAYZ_AUTO_UPDATE=0`.
 
 `DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN` values:
 
@@ -457,6 +490,14 @@ For OMV deployments with absolute paths, use the same container targets:
 ```
 
 If Steam Guard prompts repeat after a successful approval, stop the container before further login attempts and verify these mounts. Repeated failed or repeated new-device logins can trigger Steam account protection.
+
+For normal restarts, set:
+
+```env
+DAYZ_AUTO_UPDATE=0
+```
+
+SteamCMD login persistence with Steam Guard is not guaranteed yet. Safe runtime mode avoids depending on SteamCMD login for every restart.
 
 Also verify that the container is using consistent `PUID` and `PGID` values between runs.
 
