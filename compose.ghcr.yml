@@ -29,8 +29,8 @@ services:
       - ./data/server:/dayz/server
       - ./data/profiles:/dayz/profiles
       - ./data/logs:/dayz/logs
-      - ./data/steam:/home/dayz/Steam
-      - ./data/steam-home:/home/dayz/.steam
+      - ./data/steam/Steam:/home/dayz/Steam
+      - ./data/steam/dot-steam:/home/dayz/.steam
       - ./config:/dayz/config:ro
     stdin_open: true
     tty: true

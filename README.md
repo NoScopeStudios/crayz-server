@@ -122,8 +122,8 @@ For the first login:
 Steam login/session state is stored persistently under:
 
 ```text
-data/steam/
-data/steam-home/
+data/steam/Steam/
+data/steam/dot-steam/
 ```
 
 These folders map to `/home/dayz/Steam` and `/home/dayz/.steam` inside the container. Keeping both paths persistent helps prevent Steam Guard from being required again every time the container is recreated.
@@ -175,7 +175,8 @@ crayz/
     profiles/
     logs/
     steam/
-    steam-home/
+      Steam/
+      dot-steam/
 ```
 
 If `config/serverDZ.cfg` does not exist, CrayZ creates a safe default vanilla server config.
@@ -396,10 +397,13 @@ data/logs/
   Server logs.
 
 data/steam/
-  SteamCMD login/session state for /home/dayz/Steam.
+  SteamCMD login/session state.
 
-data/steam-home/
-  SteamCMD login/session state for /home/dayz/.steam.
+data/steam/Steam/
+  Mounted to /home/dayz/Steam.
+
+data/steam/dot-steam/
+  Mounted to /home/dayz/.steam.
 
 config/
   User-editable configuration files.
@@ -438,7 +442,21 @@ docker compose pull
 
 ### Steam Guard keeps asking again
 
-Check that `data/steam/` and `data/steam-home/` are mounted and writable.
+Check that both Steam state mounts are present and writable:
+
+```yaml
+- ./data/steam/Steam:/home/dayz/Steam
+- ./data/steam/dot-steam:/home/dayz/.steam
+```
+
+For OMV deployments with absolute paths, use the same container targets:
+
+```yaml
+- /DockerData/crayz/steam/Steam:/home/dayz/Steam
+- /DockerData/crayz/steam/dot-steam:/home/dayz/.steam
+```
+
+If Steam Guard prompts repeat after a successful approval, stop the container before further login attempts and verify these mounts. Repeated failed or repeated new-device logins can trigger Steam account protection.
 
 Also verify that the container is using consistent `PUID` and `PGID` values between runs.
 

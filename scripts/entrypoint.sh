@@ -136,6 +136,20 @@ assert_runtime_writable() {
   done
 }
 
+log_steam_state_diagnostics() {
+  local path
+
+  for path in "$STEAM_HOME_DIR" "$STEAM_DOT_DIR"; do
+    if [[ -d "$path" && -w "$path" ]]; then
+      log "Steam state directory $path is writable."
+    elif [[ -d "$path" ]]; then
+      log "Steam state directory $path exists but is not writable."
+    else
+      log "Steam state directory $path is missing."
+    fi
+  done
+}
+
 log_credential_diagnostics() {
   if [[ -n "${STEAM_USERNAME:-}" ]]; then
     log "STEAM_USERNAME is set."
@@ -280,6 +294,7 @@ shift
 
 ensure_directories
 assert_runtime_writable
+log_steam_state_diagnostics
 seed_server_config_if_missing
 seed_mods_file_if_missing
 log_credential_diagnostics
