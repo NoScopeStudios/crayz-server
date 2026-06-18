@@ -2,100 +2,169 @@
 
 **Codex-Refined Automated DayZ**
 
-Experimental Docker Compose lab for creating a reliable, Unix-friendly DayZ Dedicated Server container with future Workshop mod support.
+CrayZ is a Docker-based DayZ Dedicated Server setup for Linux and self-hosted systems such as OpenMediaVault.
 
-## Goals
+It is designed to make running a DayZ server less painful by keeping the server files, SteamCMD state, profiles, logs, and configuration in predictable persistent folders.
 
-- Build a reproducible DayZ Dedicated Server container setup.
-- Keep server files, profiles, logs, config, and workshop mods persistent.
-- Support vanilla server startup first.
-- Add Workshop mod support in a later milestone.
-- Keep Steam credentials out of Git.
-- Use credentialed SteamCMD login for the first working install/update path.
+CrayZ is currently focused on a reliable vanilla DayZ server setup first. Workshop mod support is planned, but should only be used once the base server install and login flow are proven stable.
 
-## Non-Goals For First Milestone
+## What CrayZ Does
 
-- Public production-ready image.
-- Automatic community modpack management.
-- Web UI.
-- RCON dashboard.
-- Cluster orchestration.
-- Commercial hosting panel behavior.
+CrayZ provides:
 
-## Repository Layout
+* A Docker image for running a DayZ Dedicated Server.
+* Docker Compose files for local builds and GHCR-based deployment.
+* Persistent server files under `data/server/`.
+* Persistent DayZ profiles under `data/profiles/`.
+* Persistent logs under `data/logs/`.
+* Persistent Steam login/session state under `data/steam/`.
+* First-run creation of default config files when missing.
+* PUID/PGID support for Linux and OpenMediaVault-style bind mounts.
+* Credentialed SteamCMD login for installing/updating the DayZ server.
 
-```text
-config/
-  User-editable DayZ config files.
+## Current Status
 
-scripts/
-  Entrypoint, update, validation, and helper scripts.
+CrayZ currently targets a vanilla DayZ Dedicated Server.
 
-data/
-  Persistent runtime folders. Ignored by Git except placeholder files.
+Implemented:
 
-docs/
-  Setup notes, troubleshooting, and mod documentation.
+* GHCR/Docker Compose deployment layout.
+* Local Docker build layout.
+* SteamCMD-based DayZ server install/update.
+* Persistent Steam login/session state.
+* First-run config seeding.
+* PUID/PGID permission support.
+
+Not implemented yet:
+
+* Workshop mod download support.
+* Automatic mod loading.
+* RCON dashboard.
+* Web UI.
+* Hosting-panel style management.
+
+## Requirements
+
+You need:
+
+* A Linux Docker host, such as OpenMediaVault, Debian, Ubuntu, or another Docker-capable Linux system.
+* Docker Compose.
+* A Steam account that can install the DayZ Dedicated Server through SteamCMD.
+* A local `.env` file containing your private Steam login values.
+
+Anonymous SteamCMD login is intentionally not supported by CrayZ.
+
+## Quick Start - GHCR Deployment
+
+Create a folder for CrayZ on your Docker host:
+
+```bash
+mkdir -p crayz
+cd crayz
+```
+
+Copy the deployment Compose file and environment example from the repository:
+
+```bash
+cp deploy/docker-compose.yml docker-compose.yml
+cp deploy/.env.example .env
+```
+
+Edit `.env`:
+
+```bash
+nano .env
+```
+
+At minimum, set:
+
+```env
+STEAM_USERNAME=your_steam_username
+STEAM_PASSWORD=your_steam_password
+STEAM_GUARD_CODE=
+DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1
+```
+
+Then pull and start the image:
+
+```bash
+docker compose pull
+docker compose up
+```
+
+For the first run, starting in the foreground is recommended so you can watch the SteamCMD login and install process.
+
+After the first successful login and install, you can stop the container with `Ctrl+C` and later run it detached:
+
+```bash
+docker compose up -d
 ```
 
 ## First Steam Login
 
-Copy `.env.example` to `.env` for local runtime values. A normal Steam account login is required for SteamCMD; anonymous SteamCMD login is intentionally not supported by CrayZ.
+CrayZ uses credentialed SteamCMD login.
 
 For the first login:
 
 1. Set `STEAM_USERNAME` in `.env`.
 2. Set `STEAM_PASSWORD` in `.env`.
-3. Set `STEAM_GUARD_CODE` only when Steam Guard asks for it.
+3. Leave `STEAM_GUARD_CODE` empty unless Steam gives you a code.
 4. Set `DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1`.
-5. Start the container and wait for SteamCMD login/install to finish.
-6. After the first successful login, clear `STEAM_GUARD_CODE` from `.env`.
-7. Recreate or restart the container and verify SteamCMD can reuse the persisted login/session state.
-
-Steam state is persisted under `data/steam/` and mounted into the `dayz` user's home directory. Do not commit `.env`, downloaded server files, logs, or Steam runtime state.
-
-## Docker Compose / OMV - GHCR Deployment
-
-Use the root `docker-compose.yml` for normal GHCR deployment. It pulls `ghcr.io/noscopestudios/crayz-server:latest`.
-
-First deployment flow:
-
-1. Clone or copy this repository onto the host.
-2. Copy `.env.example` to `.env`.
-3. Edit `.env` and set the Steam login values.
-4. Pull the image.
 5. Start the container.
+6. Approve the login in the Steam mobile app if Steam sends a mobile approval request.
+7. If Steam gives you a Steam Guard code, place that code in `STEAM_GUARD_CODE` and rerun the container.
+8. After login succeeds, clear `STEAM_GUARD_CODE` from `.env`.
 
-```bash
-docker compose pull
-docker compose up -d
+Steam login/session state is stored persistently under:
+
+```text
+data/steam/
 ```
 
-The deployment Compose uses `ghcr.io/noscopestudios/crayz-server:latest` and keeps runtime state beside the Compose file. On first startup, the container creates `config/serverDZ.cfg` and `config/mods.txt` if they are missing. Existing config files are preserved.
+This helps prevent Steam Guard from being required again every time the container is recreated.
 
-The same persistent folders are used for local Compose and deployment Compose, including `data/steam/` for Steam login/session state.
+Do not commit or share your `.env` file.
 
-For local development builds, use `docker-compose.local.yml`:
+## First-Run Generated Files
 
-```bash
-docker compose -f docker-compose.local.yml build
-docker compose -f docker-compose.local.yml up -d
+On first startup, CrayZ creates missing folders and default config files.
+
+Expected folder layout after first run:
+
+```text
+crayz/
+  docker-compose.yml
+  .env
+  config/
+    serverDZ.cfg
+    mods.txt
+  data/
+    server/
+    profiles/
+    logs/
+    steam/
 ```
 
-## Docker Compose / OMV Permissions
+If `config/serverDZ.cfg` does not exist, CrayZ creates a safe default vanilla server config.
 
-CrayZ supports `PUID` and `PGID` so files created in bind-mounted folders belong to the expected Linux host user instead of root or an arbitrary container id.
+If `config/mods.txt` does not exist, CrayZ creates a commented empty mod list for future mod support.
 
-On the OMV/Linux host, find the ids for the user that should own the server files:
+Existing config files are not overwritten.
+
+## OpenMediaVault / Linux Permissions
+
+CrayZ supports `PUID` and `PGID` so files created inside bind-mounted folders belong to the expected host user.
+
+On the Docker host, run:
 
 ```bash
 id yourusername
 ```
 
-Example output:
+Example:
 
 ```text
-uid=1000(username) gid=1000(docker) groups=1000(docker),100(users)
+uid=1000(username) gid=1000(username) groups=1000(username),100(users)
 ```
 
 Use those values in `.env`:
@@ -105,10 +174,203 @@ PUID=1000
 PGID=1000
 ```
 
-At startup the container prepares the `dayz` user/group with those ids, checks the mounted runtime folders, then drops privileges before running SteamCMD or the DayZ server.
+For OpenMediaVault, use the UID and GID of the user that should own and manage the CrayZ files.
 
-## Safety Notes
+At startup, CrayZ prepares the internal `dayz` user/group with those IDs, checks the mounted folders, and then drops privileges before running SteamCMD or the DayZ server.
 
-Do not commit Steam credentials, downloaded server files, workshop content, logs, or private server data.
+## Configuration
+
+Main configuration files:
+
+```text
+.env
+config/serverDZ.cfg
+config/mods.txt
+```
+
+### `.env`
+
+Private runtime settings.
+
+This file contains values such as:
+
+```env
+PUID=1000
+PGID=1000
+
+STEAM_USERNAME=
+STEAM_PASSWORD=
+STEAM_GUARD_CODE=
+DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=0
+
+DAYZ_SERVER_PORT=2302
+DAYZ_STEAM_QUERY_PORT=27016
+DAYZ_SERVER_CONFIG=serverDZ.cfg
+DAYZ_VALIDATE_INSTALL=1
+DAYZ_AUTO_UPDATE=1
+DAYZ_EXTRA_ARGS=
+```
 
 Never commit `.env`.
+
+### `config/serverDZ.cfg`
+
+The DayZ server configuration file.
+
+This controls settings such as:
+
+* server name
+* password
+* admin password
+* max players
+* mission template
+* server time behavior
+* signature verification
+
+### `config/mods.txt`
+
+Reserved for future Workshop mod support.
+
+CrayZ does not currently implement Workshop mod download or automatic mod loading.
+
+## Starting and Stopping
+
+Start in foreground:
+
+```bash
+docker compose up
+```
+
+Start in background:
+
+```bash
+docker compose up -d
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+View logs:
+
+```bash
+docker logs -f crayz-dayz
+```
+
+Update image:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+## Local Development Build
+
+For local development, use the local Compose file:
+
+```bash
+docker compose -f docker-compose.local.yml build
+docker compose -f docker-compose.local.yml up
+```
+
+The normal deployment Compose file should use the prebuilt GHCR image.
+
+## Persistent Data
+
+CrayZ stores persistent runtime data outside the container.
+
+```text
+data/server/
+  Installed DayZ server files.
+
+data/profiles/
+  DayZ profile and runtime state.
+
+data/logs/
+  Server logs.
+
+data/steam/
+  SteamCMD login/session state.
+
+config/
+  User-editable configuration files.
+```
+
+These folders should be backed up if you care about preserving the server state.
+
+## Security Notes
+
+Do not commit or share:
+
+* `.env`
+* Steam usernames/passwords
+* Steam Guard codes
+* downloaded server files
+* logs containing private data
+* Steam runtime/session state
+
+Safe to commit:
+
+* `.env.example`
+* `deploy/.env.example`
+* Compose files
+* scripts
+* documentation
+* default example config templates
+
+## Troubleshooting
+
+### Docker cannot pull the image
+
+Check that the image exists and that the GHCR package is public or that your Docker host is logged in to GHCR.
+
+```bash
+docker compose pull
+```
+
+### Steam Guard keeps asking again
+
+Check that `data/steam/` is mounted and writable.
+
+Also verify that the container is using consistent `PUID` and `PGID` values between runs.
+
+### Files are owned by the wrong user
+
+Check your `.env`:
+
+```env
+PUID=1000
+PGID=1000
+```
+
+Then compare with:
+
+```bash
+id yourusername
+```
+
+### Config files are not created
+
+Make sure the `config/` folder is mounted writable.
+
+The container cannot create default config files if the config mount is read-only.
+
+### DayZ server executable is missing
+
+SteamCMD may not have completed the install/update.
+
+Check the container logs:
+
+```bash
+docker logs -f crayz-dayz
+```
+
+## Project Scope
+
+CrayZ is not a commercial hosting panel or web dashboard.
+
+The goal is to provide a reliable, understandable, self-hosted Docker setup for DayZ Dedicated Server hosting.
+
+Workshop mod support is planned, but the base server install, Steam login persistence, permissions, and restart behavior are the foundation.
