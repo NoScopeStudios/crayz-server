@@ -11,3 +11,10 @@ data/steam
 
 .vscode
 .idea
+
+assets/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif

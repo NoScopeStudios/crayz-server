@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/crayz-logo_cr.jpg" alt="CrayZ logo" width="420">
+</p>
+
 # CrayZ
 
 **Codex-Refined Automated DayZ**
