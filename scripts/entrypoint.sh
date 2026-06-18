@@ -6,6 +6,7 @@ PROFILE_DIR="${DAYZ_PROFILE_DIR:-/dayz/profiles}"
 LOG_DIR="${DAYZ_LOG_DIR:-/dayz/logs}"
 CONFIG_DIR="${DAYZ_CONFIG_DIR:-/dayz/config}"
 SERVER_CONFIG="${DAYZ_SERVER_CONFIG:-serverDZ.cfg}"
+ACTIVE_CONFIG="$CONFIG_DIR/$SERVER_CONFIG"
 SERVER_PORT="${DAYZ_SERVER_PORT:-2302}"
 AUTO_UPDATE="${DAYZ_AUTO_UPDATE:-1}"
 STEAMCMD_ROOT="${STEAMCMD_ROOT:-/opt/steamcmd}"
@@ -256,15 +257,10 @@ seed_mods_file_if_missing() {
 EOF
 }
 
-copy_config_if_present() {
-  local source_config="$CONFIG_DIR/$SERVER_CONFIG"
-  local target_config="$SERVER_DIR/$SERVER_CONFIG"
-
-  if [[ ! -f "$source_config" ]]; then
-    fail "Expected DayZ config file not found: $source_config"
+require_active_config() {
+  if [[ ! -f "$ACTIVE_CONFIG" ]]; then
+    fail "Expected DayZ config file not found: $ACTIVE_CONFIG"
   fi
-
-  cp "$source_config" "$target_config"
 }
 
 find_server_binary() {
@@ -308,7 +304,7 @@ else
   log "Skipping SteamCMD update because DAYZ_AUTO_UPDATE is not 1."
 fi
 
-copy_config_if_present
+require_active_config
 
 if ! SERVER_BINARY="$(find_server_binary)"; then
   if [[ "$AUTO_UPDATE" == "1" ]]; then
@@ -323,11 +319,12 @@ if [[ ! -x "$SERVER_BINARY" && "$SERVER_BINARY" != *.exe ]]; then
 fi
 
 log "Starting vanilla DayZ server on UDP port $SERVER_PORT."
+log "Using DayZ config at $ACTIVE_CONFIG."
 
 cd "$SERVER_DIR"
 
 exec "$SERVER_BINARY" \
-  "-config=$SERVER_CONFIG" \
+  "-config=$ACTIVE_CONFIG" \
   "-profiles=$PROFILE_DIR" \
   "-port=$SERVER_PORT" \
   "-adminlog" \

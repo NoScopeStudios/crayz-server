@@ -353,7 +353,25 @@ Never commit `.env`.
 
 ### `config/serverDZ.cfg`
 
-The DayZ server configuration file.
+The authoritative DayZ server configuration file.
+
+Inside the container, CrayZ starts DayZ with:
+
+```text
+-config=/dayz/config/serverDZ.cfg
+```
+
+For normal repo-relative deployments, edit:
+
+```text
+config/serverDZ.cfg
+```
+
+For OMV deployments using the documented absolute layout, edit:
+
+```text
+/DockerData/crayz/config/serverDZ.cfg
+```
 
 This controls settings such as:
 
