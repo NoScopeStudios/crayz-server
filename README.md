@@ -215,6 +215,38 @@ DAYZ_AUTO_UPDATE=1
 DAYZ_EXTRA_ARGS=
 ```
 
+#### Environment variable reference
+
+CrayZ uses `0` for **disabled** and `1` for **enabled** on toggle-style settings.
+
+| Variable | Default | Description |
+|---|---:|---|
+| `PUID` | `1000` | Linux user ID used inside the container. Files created in bind-mounted folders should be owned by this host user ID. Use `id yourusername` on the Docker host to find the correct value. |
+| `PGID` | `1000` | Linux group ID used inside the container. Files created in bind-mounted folders should belong to this host group ID. Use `id yourusername` on the Docker host to find the correct value. |
+| `STEAM_USERNAME` | empty | Steam account username used by SteamCMD. Required when `DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1`. |
+| `STEAM_PASSWORD` | empty | Steam account password used by SteamCMD. Required when `DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1`. Never commit this value. |
+| `STEAM_GUARD_CODE` | empty | Optional Steam Guard verification code. Leave empty unless Steam gives you a code. If Steam asks for mobile approval instead, approve the login in the Steam mobile app and leave this empty. |
+| `DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN` | `0` | Safety switch for SteamCMD login. `0` blocks credentialed Steam login. `1` allows CrayZ to use `STEAM_USERNAME`, `STEAM_PASSWORD`, and optional `STEAM_GUARD_CODE` for SteamCMD login. |
+| `DAYZ_SERVER_NAME` | `CrayZ Test Server` | Friendly server name used by CrayZ defaults. The visible DayZ server name is normally controlled by `config/serverDZ.cfg`. |
+| `DAYZ_SERVER_PORT` | `2302` | UDP game port exposed by Docker and passed to the DayZ server. |
+| `DAYZ_STEAM_QUERY_PORT` | `27016` | UDP Steam server browser query port exposed by Docker. |
+| `DAYZ_SERVER_CONFIG` | `serverDZ.cfg` | Config filename inside `config/` that DayZ should use. Most users should leave this as `serverDZ.cfg`. |
+| `DAYZ_STEAM_APP_ID` | `223350` | Steam app ID for the DayZ Dedicated Server. Most users should not change this. |
+| `DAYZ_VALIDATE_INSTALL` | `1` | Controls SteamCMD file validation during install/update. `1` validates server files and can repair missing or corrupted files. `0` skips validation and may be faster. |
+| `DAYZ_AUTO_UPDATE` | `1` | Controls startup update behavior. `1` runs SteamCMD install/update when the container starts. `0` skips automatic update and tries to start the existing installed server files. |
+| `DAYZ_EXTRA_ARGS` | empty | Optional extra command-line arguments appended to the DayZ server launch command. Advanced users only. |
+
+Recommended defaults for most users:
+
+```env
+DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1
+DAYZ_VALIDATE_INSTALL=1
+DAYZ_AUTO_UPDATE=1
+DAYZ_EXTRA_ARGS=
+```
+
+Use `DAYZ_AUTO_UPDATE=0` only when you intentionally want to prevent CrayZ from checking Steam for server updates during container startup.
+
 Never commit `.env`.
 
 ### `config/serverDZ.cfg`
