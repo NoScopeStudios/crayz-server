@@ -14,6 +14,7 @@ PGID="${PGID:-1000}"
 DAYZ_HOME="/home/dayz"
 STEAM_DOT_DIR="$DAYZ_HOME/.steam"
 STEAM_HOME_DIR="$DAYZ_HOME/Steam"
+DAYZ_RUNTIME_GROUP="dayz"
 
 log() {
   printf '[crayz] %s\n' "$*"
@@ -44,25 +45,25 @@ validate_id() {
 }
 
 ensure_dayz_group() {
-  local current_gid
   local group_for_gid
 
   group_for_gid="$(getent group "$PGID" | cut -d: -f1 || true)"
 
-  if getent group dayz >/dev/null; then
-    current_gid="$(getent group dayz | cut -d: -f3)"
-    if [[ "$current_gid" != "$PGID" ]]; then
-      if [[ -n "$group_for_gid" && "$group_for_gid" != "dayz" ]]; then
-        fail "PGID $PGID is already used by group '$group_for_gid'. Choose another PGID or adjust the image."
-      fi
-      groupmod -g "$PGID" dayz
-    fi
-  else
-    if [[ -n "$group_for_gid" ]]; then
-      fail "PGID $PGID is already used by group '$group_for_gid'. Cannot create required dayz group."
-    fi
-    groupadd --gid "$PGID" dayz
+  if [[ -n "$group_for_gid" ]]; then
+    DAYZ_RUNTIME_GROUP="$group_for_gid"
+    log "Using existing group '$DAYZ_RUNTIME_GROUP' for PGID $PGID."
+    return 0
   fi
+
+  if ! getent group dayz >/dev/null; then
+    groupadd --gid "$PGID" dayz
+    log "Created group 'dayz' with PGID $PGID."
+  else
+    groupmod -g "$PGID" dayz
+    log "Updated group 'dayz' to PGID $PGID."
+  fi
+
+  DAYZ_RUNTIME_GROUP="dayz"
 }
 
 ensure_dayz_user() {
@@ -79,13 +80,15 @@ ensure_dayz_user() {
       fi
       usermod -u "$PUID" dayz
     fi
-    usermod -g dayz -d "$DAYZ_HOME" -s /bin/bash dayz
+    usermod -g "$DAYZ_RUNTIME_GROUP" -d "$DAYZ_HOME" -s /bin/bash dayz
   else
     if [[ -n "$user_for_uid" ]]; then
       fail "PUID $PUID is already used by user '$user_for_uid'. Cannot create required dayz user."
     fi
-    useradd --uid "$PUID" --gid dayz --home-dir "$DAYZ_HOME" --create-home --shell /bin/bash dayz
+    useradd --uid "$PUID" --gid "$DAYZ_RUNTIME_GROUP" --home-dir "$DAYZ_HOME" --create-home --shell /bin/bash dayz
   fi
+
+  log "Using user 'dayz' with PUID $PUID and group '$DAYZ_RUNTIME_GROUP' (PGID $PGID)."
 }
 
 prepare_permissions() {
@@ -93,9 +96,9 @@ prepare_permissions() {
 
   # Only the small image-managed SteamCMD install is recursively owned. Bind
   # mounts are limited to top-level ownership to avoid expensive startup scans.
-  chown -R dayz:dayz "$STEAMCMD_ROOT"
-  chown dayz:dayz "$DAYZ_HOME"
-  chown dayz:dayz /dayz "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"
+  chown -R dayz:"$DAYZ_RUNTIME_GROUP" "$STEAMCMD_ROOT"
+  chown dayz:"$DAYZ_RUNTIME_GROUP" "$DAYZ_HOME"
+  chown dayz:"$DAYZ_RUNTIME_GROUP" /dayz "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"
 }
 
 configure_runtime_user() {
