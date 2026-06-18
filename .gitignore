@@ -26,3 +26,7 @@ steam-credentials.env
 Thumbs.db
 .vscode/
 .idea/
+
+# Local AI/project workflow notes
+AI_WORKFLOW.md
+PROJECT_RULES.md
