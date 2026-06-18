@@ -44,11 +44,10 @@ write_login_commands() {
   # Anonymous SteamCMD login is intentionally unsupported for CrayZ.
   # Keep this command file temporary and never echo its contents.
   {
-    printf 'login "%s" "%s"' "$STEAM_USERNAME" "$STEAM_PASSWORD"
     if [[ -n "${STEAM_GUARD_CODE:-}" ]]; then
-      printf ' "%s"' "$STEAM_GUARD_CODE"
+      printf 'set_steam_guard_code "%s"\n' "$STEAM_GUARD_CODE"
     fi
-    printf '\n'
+    printf 'login "%s" "%s"\n' "$STEAM_USERNAME" "$STEAM_PASSWORD"
   } >> "$command_file"
 }
 
@@ -61,10 +60,13 @@ main() {
 
   trap 'rm -f "$command_file"' EXIT
 
+  {
+    printf 'force_install_dir "%s"\n' "$SERVER_DIR"
+  } >> "$command_file"
+
   write_login_commands "$command_file"
 
   {
-    printf 'force_install_dir "%s"\n' "$SERVER_DIR"
     if [[ "$VALIDATE_INSTALL" == "1" ]]; then
       printf 'app_update %s validate\n' "$APP_ID"
     else
