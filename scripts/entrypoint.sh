@@ -7,6 +7,8 @@ LOG_DIR="${DAYZ_LOG_DIR:-/dayz/logs}"
 CONFIG_DIR="${DAYZ_CONFIG_DIR:-/dayz/config}"
 SERVER_CONFIG="${DAYZ_SERVER_CONFIG:-serverDZ.cfg}"
 ACTIVE_CONFIG="$CONFIG_DIR/$SERVER_CONFIG"
+MOD_ROOT="${DAYZ_MOD_ROOT:-/dayz/mods/workshop}"
+MODS_FILE="$CONFIG_DIR/mods.txt"
 SERVER_PORT="${DAYZ_SERVER_PORT:-2302}"
 AUTO_UPDATE="${DAYZ_AUTO_UPDATE:-1}"
 STEAMCMD_ROOT="${STEAMCMD_ROOT:-/opt/steamcmd}"
@@ -17,6 +19,9 @@ STEAM_DOT_DIR=""
 STEAM_HOME_DIR=""
 DAYZ_RUNTIME_USER="${DAYZ_RUNTIME_USER:-dayz}"
 DAYZ_RUNTIME_GROUP="${DAYZ_RUNTIME_GROUP:-dayz}"
+CLIENT_MOD_PATHS=()
+SERVER_MOD_PATHS=()
+DAYZ_MOD_ARGS=()
 
 log() {
   printf '[crayz] %s\n' "$*"
@@ -30,7 +35,7 @@ fail() {
 ensure_directories() {
   STEAM_DOT_DIR="$DAYZ_HOME/.steam"
   STEAM_HOME_DIR="$DAYZ_HOME/Steam"
-  mkdir -p "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"
+  mkdir -p "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$MOD_ROOT" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"
 }
 
 require_root() {
@@ -124,7 +129,7 @@ prepare_permissions() {
   # mounts are limited to top-level ownership to avoid expensive startup scans.
   chown -R "$DAYZ_RUNTIME_USER":"$DAYZ_RUNTIME_GROUP" "$STEAMCMD_ROOT"
   chown "$DAYZ_RUNTIME_USER":"$DAYZ_RUNTIME_GROUP" "$DAYZ_HOME"
-  chown "$DAYZ_RUNTIME_USER":"$DAYZ_RUNTIME_GROUP" /dayz "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"
+  chown "$DAYZ_RUNTIME_USER":"$DAYZ_RUNTIME_GROUP" /dayz "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$MOD_ROOT" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"
 }
 
 assert_runtime_writable() {
@@ -248,18 +253,140 @@ seed_mods_file_if_missing() {
   cat > "$target_mods" <<'EOF'
 # CrayZ mod list
 #
-# Workshop mod support is intentionally not implemented yet.
-# Future format:
-# WORKSHOP_ID|@LocalModFolderName
+# This file loads already-present local mod folders only.
+# SteamCMD Workshop download/update support is planned separately.
 #
-# Example:
-# 1559212036|@CF
+# Format:
+# folder_name|load_type
+#
+# load_type:
+# client = add the folder to the DayZ -mod= parameter and copy .bikey files from keys/
+# server = add the folder to the DayZ -servermod= parameter
+#
+# Mod folders are expected under /dayz/mods/workshop inside the container.
+#
+# Examples:
+# @CF|client
+# @VPPAdminTools|server
+# @Some Server Mod|client
 EOF
 }
 
 require_active_config() {
   if [[ ! -f "$ACTIVE_CONFIG" ]]; then
     fail "Expected DayZ config file not found: $ACTIVE_CONFIG"
+  fi
+}
+
+trim() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
+copy_client_mod_keys() {
+  local mod_path="$1"
+  local key_dir="$mod_path/keys"
+  local server_key_dir="$SERVER_DIR/keys"
+  local key_file
+  local target_key
+
+  if [[ ! -d "$key_dir" ]]; then
+    log "Client mod $(basename "$mod_path") has no keys/ directory; no .bikey files copied."
+    return 0
+  fi
+
+  mkdir -p "$server_key_dir"
+
+  while IFS= read -r -d '' key_file; do
+    target_key="$server_key_dir/$(basename "$key_file")"
+    if [[ -f "$target_key" ]] && cmp -s "$key_file" "$target_key"; then
+      log "Client mod key already current: $(basename "$key_file")"
+    else
+      cp "$key_file" "$target_key"
+      log "Copied client mod key: $(basename "$key_file")"
+    fi
+  done < <(find "$key_dir" -maxdepth 1 -type f -name '*.bikey' -print0)
+}
+
+load_mods_file() {
+  local line_number=0
+  local raw_line
+  local line
+  local trimmed_line
+  local folder_name
+  local load_type
+  local mod_path
+
+  CLIENT_MOD_PATHS=()
+  SERVER_MOD_PATHS=()
+  DAYZ_MOD_ARGS=()
+
+  if [[ ! -f "$MODS_FILE" ]]; then
+    return 0
+  fi
+
+  while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
+    line_number=$((line_number + 1))
+    line="${raw_line%$'\r'}"
+    trimmed_line="$(trim "$line")"
+
+    if [[ -z "$trimmed_line" || "${trimmed_line:0:1}" == "#" ]]; then
+      continue
+    fi
+
+    if [[ "$trimmed_line" != *"|"* ]]; then
+      fail "Invalid mods.txt line $line_number. Expected format: folder_name|load_type"
+    fi
+
+    folder_name="$(trim "${trimmed_line%%|*}")"
+    load_type="$(trim "${trimmed_line#*|}")"
+
+    if [[ -z "$folder_name" ]]; then
+      fail "Invalid mods.txt line $line_number. Mod folder name is empty."
+    fi
+
+    if [[ "$folder_name" == */* || "$folder_name" == *\\* ]]; then
+      fail "Invalid mods.txt line $line_number. Mod folder name must not contain path separators."
+    fi
+
+    if [[ "$load_type" != "client" && "$load_type" != "server" ]]; then
+      fail "Invalid mods.txt line $line_number. load_type must be 'client' or 'server'."
+    fi
+
+    mod_path="$MOD_ROOT/$folder_name"
+    if [[ ! -d "$mod_path" ]]; then
+      fail "Listed $load_type mod folder is missing: $mod_path"
+    fi
+
+    if [[ "$load_type" == "client" ]]; then
+      CLIENT_MOD_PATHS+=("$mod_path")
+      copy_client_mod_keys "$mod_path"
+    else
+      SERVER_MOD_PATHS+=("$mod_path")
+    fi
+  done < "$MODS_FILE"
+}
+
+join_mod_paths() {
+  local IFS=';'
+  printf '%s' "$*"
+}
+
+build_mod_args() {
+  if (( ${#CLIENT_MOD_PATHS[@]} > 0 )); then
+    DAYZ_MOD_ARGS+=("-mod=$(join_mod_paths "${CLIENT_MOD_PATHS[@]}")")
+    log "Loaded ${#CLIENT_MOD_PATHS[@]} client mod(s) from $MODS_FILE."
+  fi
+
+  if (( ${#SERVER_MOD_PATHS[@]} > 0 )); then
+    DAYZ_MOD_ARGS+=("-servermod=$(join_mod_paths "${SERVER_MOD_PATHS[@]}")")
+    log "Loaded ${#SERVER_MOD_PATHS[@]} server mod(s) from $MODS_FILE."
+  fi
+
+  if (( ${#DAYZ_MOD_ARGS[@]} == 0 )); then
+    log "No local mods enabled from $MODS_FILE."
   fi
 }
 
@@ -305,6 +432,8 @@ else
 fi
 
 require_active_config
+load_mods_file
+build_mod_args
 
 if ! SERVER_BINARY="$(find_server_binary)"; then
   if [[ "$AUTO_UPDATE" == "1" ]]; then
@@ -330,4 +459,5 @@ exec "$SERVER_BINARY" \
   "-adminlog" \
   "-netlog" \
   "-freezecheck" \
+  "${DAYZ_MOD_ARGS[@]}" \
   ${DAYZ_EXTRA_ARGS:-}

@@ -25,13 +25,14 @@ CrayZ provides:
 * Persistent DayZ profiles under `data/profiles/`.
 * Persistent logs under `data/logs/`.
 * Persistent Steam login/session state under `data/steam/`.
+* Local DayZ mod loading from already-present folders under `data/mods/workshop/`.
 * First-run creation of default config files when missing.
 * PUID/PGID support for Docker bind mounts.
 * Credentialed SteamCMD login for installing/updating the DayZ server.
 
 ## Current Status
 
-CrayZ currently targets a vanilla DayZ Dedicated Server.
+CrayZ currently targets a reliable vanilla DayZ Dedicated Server baseline with first-stage local mod loading.
 
 Implemented:
 
@@ -41,11 +42,12 @@ Implemented:
 * Persistent Steam login/session state.
 * First-run config seeding.
 * PUID/PGID permission support.
+* Local mod folder loading from `config/mods.txt`.
 
 Not implemented yet:
 
-* Workshop mod download support.
-* Automatic mod loading.
+* Workshop mod download/update support.
+* Workshop collection support.
 * RCON dashboard.
 * Web UI.
 * Hosting-panel style management.
@@ -204,6 +206,8 @@ crayz/
     server/
     profiles/
     logs/
+    mods/
+      workshop/
     steam/
       Steam/
       dot-steam/
@@ -211,7 +215,7 @@ crayz/
 
 If `config/serverDZ.cfg` does not exist, CrayZ creates a safe default vanilla server config.
 
-If `config/mods.txt` does not exist, CrayZ creates a commented empty mod list for future mod support.
+If `config/mods.txt` does not exist, CrayZ creates a commented empty local mod list.
 
 Existing config files are not overwritten.
 
@@ -388,9 +392,46 @@ This controls settings such as:
 
 ### `config/mods.txt`
 
-Reserved for future Workshop mod support.
+The human-editable local mod list.
 
-CrayZ does not currently implement Workshop mod download or automatic mod loading.
+This file loads already-present local mod folders from:
+
+```text
+/dayz/mods/workshop/
+```
+
+For deployments using the documented absolute Docker host layout, place local mod folders under:
+
+```text
+/DockerData/crayz/data/mods/workshop/
+```
+
+The Compose files mount that host folder to `/dayz/mods/workshop/` inside the container.
+
+Format:
+
+```text
+folder_name|load_type
+```
+
+Blank lines and lines starting with `#` are ignored.
+
+`load_type` values:
+
+* `client` adds the folder to the DayZ `-mod=` launch parameter and copies `.bikey` files from the mod's `keys/` folder into `/dayz/server/keys/`.
+* `server` adds the folder to the DayZ `-servermod=` launch parameter.
+
+Examples:
+
+```text
+@CF|client
+@VPPAdminTools|server
+@Some Server Mod|client
+```
+
+CrayZ preserves the order from `mods.txt`. If a listed folder is missing, startup fails before DayZ is launched with a clear error.
+
+This feature does not download or update Workshop content. Copy or sync mod folders into the host `data/mods/workshop/` folder yourself for now. SteamCMD Workshop download/update support is planned separately.
 
 ## Starting and Stopping
 
@@ -449,6 +490,9 @@ data/profiles/
 
 data/logs/
   Server logs.
+
+data/mods/workshop/
+  Already-present local DayZ mod folders mounted to /dayz/mods/workshop.
 
 data/steam/
   SteamCMD login/session state.
@@ -567,4 +611,4 @@ CrayZ is not a commercial hosting panel or web dashboard.
 
 The goal is to provide a reliable, understandable, self-hosted Docker setup for DayZ Dedicated Server hosting.
 
-Workshop mod support is planned, but the base server install, Steam login persistence, permissions, and restart behavior are the foundation.
+SteamCMD Workshop download/update support is planned, but the base server install, local mod loading, Steam login safety, permissions, and restart behavior are the foundation.

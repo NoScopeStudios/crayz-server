@@ -32,6 +32,7 @@ services:
       - ./data/server:/dayz/server
       - ./data/profiles:/dayz/profiles
       - ./data/logs:/dayz/logs
+      - ./data/mods/workshop:/dayz/mods/workshop
       - ./data/steam/Steam:/home/dayz/Steam
       - ./data/steam/dot-steam:/home/dayz/.steam
       - ./config:/dayz/config
