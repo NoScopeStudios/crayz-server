@@ -135,7 +135,7 @@ prepare_permissions() {
 assert_runtime_writable() {
   local path
 
-  for path in "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"; do
+  for path in "$SERVER_DIR" "$PROFILE_DIR" "$LOG_DIR" "$CONFIG_DIR" "$MOD_ROOT" "$STEAM_DOT_DIR" "$STEAM_HOME_DIR"; do
     if [[ ! -w "$path" ]]; then
       fail "Runtime user '$(id -un)' cannot write to $path. Check PUID=$PUID, PGID=$PGID, and host bind-mount ownership."
     fi
@@ -290,6 +290,7 @@ copy_client_mod_keys() {
   local key_dir="$mod_path/keys"
   local server_key_dir="$SERVER_DIR/keys"
   local key_file
+  local key_count=0
   local target_key
 
   if [[ ! -d "$key_dir" ]]; then
@@ -300,6 +301,7 @@ copy_client_mod_keys() {
   mkdir -p "$server_key_dir"
 
   while IFS= read -r -d '' key_file; do
+    key_count=$((key_count + 1))
     target_key="$server_key_dir/$(basename "$key_file")"
     if [[ -f "$target_key" ]] && cmp -s "$key_file" "$target_key"; then
       log "Client mod key already current: $(basename "$key_file")"
@@ -308,6 +310,10 @@ copy_client_mod_keys() {
       log "Copied client mod key: $(basename "$key_file")"
     fi
   done < <(find "$key_dir" -maxdepth 1 -type f -name '*.bikey' -print0)
+
+  if (( key_count == 0 )); then
+    log "Client mod $(basename "$mod_path") has a keys/ directory but no .bikey files were found."
+  fi
 }
 
 load_mods_file() {
