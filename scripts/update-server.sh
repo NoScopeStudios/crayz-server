@@ -152,27 +152,31 @@ write_workshop_download_commands() {
   done
 }
 
+workshop_item_candidates() {
+  local workshop_id="$1"
+
+  printf '%s\n' \
+    "$SERVER_DIR/steamapps/workshop/content/$WORKSHOP_APP_ID/$workshop_id" \
+    "$STEAMCMD_ROOT/steamapps/workshop/content/$WORKSHOP_APP_ID/$workshop_id" \
+    "$STEAMCMD_ROOT/Steam/steamapps/workshop/content/$WORKSHOP_APP_ID/$workshop_id"
+
+  if [[ -n "${HOME:-}" ]]; then
+    printf '%s\n' \
+      "$HOME/Steam/steamapps/workshop/content/$WORKSHOP_APP_ID/$workshop_id" \
+      "$HOME/.steam/steam/steamapps/workshop/content/$WORKSHOP_APP_ID/$workshop_id"
+  fi
+}
+
 find_downloaded_workshop_item() {
   local workshop_id="$1"
   local candidate
-  local candidates=(
-    "$STEAMCMD_ROOT/steamapps/workshop/content/$WORKSHOP_APP_ID/$workshop_id"
-    "$STEAMCMD_ROOT/Steam/steamapps/workshop/content/$WORKSHOP_APP_ID/$workshop_id"
-  )
 
-  if [[ -n "${HOME:-}" ]]; then
-    candidates+=(
-      "$HOME/Steam/steamapps/workshop/content/$WORKSHOP_APP_ID/$workshop_id"
-      "$HOME/.steam/steam/steamapps/workshop/content/$WORKSHOP_APP_ID/$workshop_id"
-    )
-  fi
-
-  for candidate in "${candidates[@]}"; do
+  while IFS= read -r candidate; do
     if [[ -d "$candidate" ]]; then
       printf '%s\n' "$candidate"
       return 0
     fi
-  done
+  done < <(workshop_item_candidates "$workshop_id")
 
   return 1
 }
@@ -188,7 +192,8 @@ sync_workshop_item() {
   fi
 
   if ! source_dir="$(find_downloaded_workshop_item "$workshop_id")"; then
-    fail "SteamCMD finished, but Workshop item $workshop_id was not found under known workshop content paths for app $WORKSHOP_APP_ID."
+    fail "SteamCMD finished, but Workshop item $workshop_id was not found for Workshop app $WORKSHOP_APP_ID. Checked paths:
+$(workshop_item_candidates "$workshop_id" | sed 's/^/  - /')"
   fi
 
   mkdir -p "$MOD_ROOT" "$target_dir"
