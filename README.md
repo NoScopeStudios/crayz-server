@@ -399,10 +399,10 @@ This controls settings such as:
 
 The human-editable mod list.
 
-This file lists enabled mod folders stored under:
+CrayZ keeps mod content persistently under:
 
 ```text
-/dayz/mods/workshop/
+/dayz/mods/workshop/<folder_name>
 ```
 
 For deployments using the documented absolute Docker host layout, place local mod folders under:
@@ -411,7 +411,22 @@ For deployments using the documented absolute Docker host layout, place local mo
 /DockerData/crayz/data/mods/workshop/
 ```
 
-The Compose files mount that host folder to `/dayz/mods/workshop/` inside the container. At startup, CrayZ creates matching symlinks under `/dayz/server/` and launches DayZ with relative server-root names such as `-mod=@CF;@BetterMovement`.
+The Compose files mount that host folder to `/dayz/mods/workshop/` inside the container.
+
+At startup, CrayZ creates DayZ-native server-root symlinks for enabled mods:
+
+```text
+/dayz/server/<folder_name> -> /dayz/mods/workshop/<folder_name>
+```
+
+DayZ is then launched with relative server-root mod names:
+
+```text
+-mod=@ModName;@OtherMod
+-servermod=@ServerOnlyMod
+```
+
+CrayZ does not launch DayZ with absolute `/dayz/mods/workshop/...` mod paths.
 
 Supported formats:
 
@@ -430,8 +445,17 @@ Workshop lines use `workshop_id|folder_name|load_type`. When `DAYZ_AUTO_UPDATE=1
 
 `load_type` values:
 
-* `client` adds the folder to the DayZ `-mod=` launch parameter and copies `.bikey` files from the mod's `keys/` or `Keys/` folder into `/dayz/server/keys/`.
-* `server` adds the folder to the DayZ `-servermod=` launch parameter.
+* `client` adds the folder name to the DayZ `-mod=` launch parameter.
+* `server` adds the folder name to the DayZ `-servermod=` launch parameter.
+
+For `client` mods, CrayZ copies `.bikey` files into `/dayz/server/keys/` from both:
+
+```text
+keys/
+Keys/
+```
+
+Missing or empty key folders are non-fatal. CrayZ logs what it found and continues.
 
 Examples:
 
@@ -443,6 +467,17 @@ Examples:
 ```
 
 CrayZ preserves the order from `mods.txt`. If a listed folder is missing, startup fails before DayZ is launched with a clear error. If `/dayz/server/<folder_name>` already exists as a real file or directory, startup fails instead of overwriting it.
+
+No-space folder aliases are recommended for easier troubleshooting and cleaner launch output, for example `@BetterMovement` instead of `@Better Movement`. Folder names with spaces may still work, but they make logs and manual checks easier to misread.
+
+Tested conservative Workshop example:
+
+```text
+1559212036|@CommunityFramework|client
+2545327648|@DabsFramework|client
+3046779255|@BetterMovement|client
+1560819773|@UnlimitedStamina|client
+```
 
 Workshop download/update uses the same credentialed SteamCMD login path as server updates. Steam Guard/session persistence is still not guaranteed, so run Workshop install/update intentionally with `DAYZ_AUTO_UPDATE=1`, then return to `DAYZ_AUTO_UPDATE=0` for normal restarts.
 
@@ -470,6 +505,13 @@ During install/update, SteamCMD downloads item `1559212036` for Workshop app `22
 
 ```text
 /dayz/mods/workshop/@CF
+```
+
+On startup, CrayZ enables it for DayZ with:
+
+```text
+/dayz/server/@CF -> /dayz/mods/workshop/@CF
+-mod=@CF
 ```
 
 Normal runtime with `DAYZ_AUTO_UPDATE=0` does not run SteamCMD. It only loads folders that already exist under `/dayz/mods/workshop/`, through server-root symlinks under `/dayz/server/`.
