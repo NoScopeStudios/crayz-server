@@ -457,14 +457,16 @@ Workshop lines use `workshop_id|folder_name|load_type`. When `DAYZ_AUTO_UPDATE=1
 * `client` adds the folder name to the DayZ `-mod=` launch parameter.
 * `server` adds the folder name to the DayZ `-servermod=` launch parameter.
 
-For `client` mods, CrayZ copies `.bikey` files into `/dayz/server/keys/` from both:
+For `client` mods, CrayZ recursively searches the enabled mod folder for `.bikey` files, case-insensitively, and copies discovered keys into `/dayz/server/keys/`. This covers common and non-standard paths such as:
 
 ```text
+key/
 keys/
 Keys/
+nested/key/folders/
 ```
 
-Missing or empty key folders are non-fatal. CrayZ logs what it found and continues.
+Missing keys are non-fatal. CrayZ logs whether keys were copied or whether no `.bikey` files were found.
 
 Examples:
 

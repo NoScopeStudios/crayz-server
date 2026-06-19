@@ -265,7 +265,7 @@ seed_mods_file_if_missing() {
 # Normal runtime with DAYZ_AUTO_UPDATE=0 only loads already-present folders.
 #
 # load_type:
-# client = add the folder to the DayZ -mod= parameter and copy .bikey files from keys/ or Keys/
+# client = add the folder to the DayZ -mod= parameter and recursively copy .bikey files
 # server = add the folder to the DayZ -servermod= parameter
 #
 # Mod folders are expected under /dayz/mods/workshop inside the container.
@@ -294,57 +294,30 @@ trim() {
 
 copy_client_mod_keys() {
   local mod_path="$1"
+  local mod_name
   local server_key_dir="$SERVER_DIR/keys"
-  local key_dir
   local key_file
   local key_count=0
-  local key_dir_count=0
-  local seen_key_dir
-  local skip_key_dir
+  local key_rel
   local target_key
-  local seen_key_dirs=()
-  local key_dirs=(
-    "$mod_path/keys"
-    "$mod_path/Keys"
-  )
 
-  for key_dir in "${key_dirs[@]}"; do
-    if [[ ! -d "$key_dir" ]]; then
-      continue
+  mod_name="$(basename "$mod_path")"
+  mkdir -p "$server_key_dir"
+
+  while IFS= read -r -d '' key_file; do
+    key_count=$((key_count + 1))
+    key_rel="${key_file#$mod_path/}"
+    target_key="$server_key_dir/$(basename "$key_file")"
+    if [[ -f "$target_key" ]] && cmp -s "$key_file" "$target_key"; then
+      log "Client mod key already current for $mod_name: $key_rel"
+    else
+      cp "$key_file" "$target_key"
+      log "Copied client mod key for $mod_name: $key_rel"
     fi
+  done < <(find "$mod_path" -type f -iname '*.bikey' -print0)
 
-    skip_key_dir=0
-    for seen_key_dir in "${seen_key_dirs[@]}"; do
-      if [[ "$key_dir" -ef "$seen_key_dir" ]]; then
-        skip_key_dir=1
-        break
-      fi
-    done
-
-    if (( skip_key_dir == 1 )); then
-      continue
-    fi
-
-    seen_key_dirs+=("$key_dir")
-    key_dir_count=$((key_dir_count + 1))
-    mkdir -p "$server_key_dir"
-
-    while IFS= read -r -d '' key_file; do
-      key_count=$((key_count + 1))
-      target_key="$server_key_dir/$(basename "$key_file")"
-      if [[ -f "$target_key" ]] && cmp -s "$key_file" "$target_key"; then
-        log "Client mod key already current: $(basename "$key_file")"
-      else
-        cp "$key_file" "$target_key"
-        log "Copied client mod key: $(basename "$key_file")"
-      fi
-    done < <(find "$key_dir" -maxdepth 1 -type f -name '*.bikey' -print0)
-  done
-
-  if (( key_dir_count == 0 )); then
-    log "Client mod $(basename "$mod_path") has no keys/ or Keys/ directory; no .bikey files copied."
-  elif (( key_count == 0 )); then
-    log "Client mod $(basename "$mod_path") has keys/ or Keys/ directories but no .bikey files were found."
+  if (( key_count == 0 )); then
+    log "Client mod $mod_name has no .bikey files; no keys copied."
   fi
 }
 
