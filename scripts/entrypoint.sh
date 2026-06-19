@@ -202,6 +202,7 @@ password = "";
 passwordAdmin = "ChangeThisAdminPassword";
 maxPlayers = 10;
 instanceId = 1;
+steamQueryPort = 27016;
 
 verifySignatures = 2;
 forceSameBuild = 1;

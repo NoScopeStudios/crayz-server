@@ -102,6 +102,12 @@ shardId = "";
 |---|---:|---|---|
 | `steamQueryPort` | `27016` | Steam query/server-browser discovery port. | Set explicitly to `27016`. |
 
+This setting must be present as a top-level `serverDZ.cfg` value:
+
+```cfg
+steamQueryPort = 27016;
+```
+
 CrayZ observed behavior:
 
 | User action / UI | Port |
@@ -117,11 +123,27 @@ Important distinction:
 2302  = actual DayZ game traffic port
 ```
 
+Direct public connect to `2302` can work while launcher/server-list visibility fails. Direct connect proves the game traffic path only; it does not prove the Steam query path.
+
 Example:
 
 ```cfg
 steamQueryPort = 27016;
 ```
+
+Confirmed CrayZ troubleshooting conclusion:
+
+- public direct connect worked on `2302`;
+- Docker/NAT exposed `27016`;
+- native DayZ launcher visibility started working after adding `steamQueryPort = 27016;` to `/DockerData/crayz/config/serverDZ.cfg`.
+
+For DZSA/DZLauncher checks or submissions, use the Steam query address:
+
+```text
+<public-ip-or-domain>:27016
+```
+
+DZSA may use its own index/list and may not show the server immediately.
 
 ---
 

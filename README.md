@@ -329,7 +329,7 @@ CrayZ uses `0` for **disabled** and `1` for **enabled** on toggle-style settings
 | `DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN` | `1` | SteamCMD credential-login toggle. See notes below for toggle values and testing guidance. |
 | `DAYZ_SERVER_NAME` | `CrayZ Test Server` | Friendly server name used by CrayZ defaults. The visible DayZ server name is normally controlled by `config/serverDZ.cfg`. |
 | `DAYZ_SERVER_PORT` | `2302` | UDP game port exposed by Docker and passed to the DayZ server. |
-| `DAYZ_STEAM_QUERY_PORT` | `27016` | UDP Steam server browser query port exposed by Docker. |
+| `DAYZ_STEAM_QUERY_PORT` | `27016` | UDP Steam query/server browser port exposed by Docker. `serverDZ.cfg` must also contain `steamQueryPort = 27016;`. |
 | `DAYZ_SERVER_CONFIG` | `serverDZ.cfg` | Config filename inside `config/` that DayZ should use. Most users should leave this as `serverDZ.cfg`. |
 | `DAYZ_STEAM_APP_ID` | `223350` | Steam app ID for the DayZ Dedicated Server. Most users should not change this. |
 | `DAYZ_WORKSHOP_APP_ID` | `221100` | Steam Workshop app ID used when downloading DayZ Workshop items. This is separate from `DAYZ_STEAM_APP_ID`. |
@@ -391,9 +391,18 @@ This controls settings such as:
 * password
 * admin password
 * max players
+* Steam query/server browser port
 * mission template
 * server time behavior
 * signature verification
+
+For server browser visibility, the config should include this top-level setting:
+
+```cpp
+steamQueryPort = 27016;
+```
+
+Fresh CrayZ-generated configs include it. Existing configs are not overwritten, so older `config/serverDZ.cfg` files may need this line added manually.
 
 ### `config/mods.txt`
 
@@ -669,6 +678,34 @@ id yourusername
 Make sure the `config/` folder is mounted writable.
 
 The container cannot create default config files if the config mount is read-only.
+
+### Server connects by direct IP but does not appear in launcher lists
+
+Direct public connect to the game port proves only the DayZ game path:
+
+```text
+<public-ip-or-domain>:2302
+```
+
+Server browser visibility uses the Steam query path:
+
+```text
+<public-ip-or-domain>:27016
+```
+
+For launcher visibility, all three pieces must line up:
+
+* Docker publishes `27016/udp`.
+* The router forwards `27016/udp` to the Docker host.
+* `config/serverDZ.cfg` contains this top-level setting:
+
+```cpp
+steamQueryPort = 27016;
+```
+
+The native DayZ launcher and Steam server browser use the query path to discover the server. DZSA/DZLauncher should also be checked or submitted with `<public-ip-or-domain>:27016`, not the direct-connect game port. DZSA uses its own index/list behavior, so it may take time and a launcher restart before the server appears.
+
+Confirmed CrayZ troubleshooting result: public direct connect worked on `2302/udp`, Docker/NAT exposed `27016/udp`, and native DayZ launcher visibility started working after adding `steamQueryPort = 27016;` to the active `/DockerData/crayz/config/serverDZ.cfg`.
 
 ### DayZ reports missing instanceId
 
