@@ -6,7 +6,10 @@
 
 **Codex-Refined Automated DayZ**
 
-CrayZ is a Docker-based DayZ Dedicated Server setup for Linux and self-hosted systems such as OpenMediaVault.
+CrayZ is a Docker-based DayZ Dedicated Server setup for Unix-based operating systems running Docker, including normal Linux Docker hosts, OpenMediaVault/OMV, and Unraid/UnRAID-style NAS deployments.
+
+
+Supported platform note: after this introduction, the documentation generally refers to these supported targets simply as a **Docker host**. The only OMV-specific exception is the documented support for named OMV Compose stack files such as `crayz.yml` and `crayz.env`.
 
 It is designed to make running a DayZ server less painful by keeping the server files, SteamCMD state, profiles, logs, and configuration in predictable persistent folders.
 
@@ -23,7 +26,7 @@ CrayZ provides:
 * Persistent logs under `data/logs/`.
 * Persistent Steam login/session state under `data/steam/`.
 * First-run creation of default config files when missing.
-* PUID/PGID support for Linux and OpenMediaVault-style bind mounts.
+* PUID/PGID support for Docker bind mounts.
 * Credentialed SteamCMD login for installing/updating the DayZ server.
 
 ## Current Status
@@ -51,12 +54,12 @@ Not implemented yet:
 
 You need:
 
-* A Linux Docker host, such as OpenMediaVault, Debian, Ubuntu, or another Docker-capable Linux system.
+* A Docker host.
 * Docker Compose.
 * A Steam account that can install the DayZ Dedicated Server through SteamCMD.
 * A local `.env` file containing your private Steam login values.
 
-Anonymous SteamCMD login is intentionally not supported by CrayZ.
+Anonymous SteamCMD login is not supported at this point in time by DayZ so it is not possible with CrayZ.
 
 ## Quick Start - GHCR Deployment
 
@@ -157,16 +160,16 @@ Future manual update:
 
 If Steam Guard prompts repeat after a restart, stop the container. Do not keep approving repeated prompts. Verify the Steam state mounts and permissions before trying again.
 
-## OpenMediaVault Named Stack Files
+## Docker Compose Environment Files And OMV Named Stack Files
 
-Normal Docker Compose usage expects:
+Normal Docker Compose usage on a Docker host expects:
 
 ```text
 docker-compose.yml
 .env
 ```
 
-OpenMediaVault may store stacks with names such as:
+OMV's native Compose stack handling may store stacks with names such as:
 
 ```text
 crayz.yml
@@ -180,9 +183,9 @@ docker compose -f crayz.yml --env-file crayz.env config
 docker compose -f crayz.yml --env-file crayz.env up
 ```
 
-For OMV, copy or paste the root `docker-compose.yml` contents into `crayz.yml`, then copy `.env.example` to `crayz.env` and edit only `crayz.env` with your local values.
+For OMV native Compose usage, copy or paste the root `docker-compose.yml` contents into `crayz.yml`, then copy `.env.example` to `crayz.env` and edit only `crayz.env` with your local values.
 
-The Compose files pass CrayZ runtime variables explicitly through `environment:`. This makes values from `.env`, `crayz.env`, or the shell visible inside the container. The optional `env_file: .env` entry is kept for the default filename/layout only; named OMV files still need `--env-file crayz.env`.
+The Compose files pass CrayZ runtime variables explicitly through `environment:`. This makes values from `.env`, `crayz.env`, or the shell visible inside the container. The optional `env_file: .env` entry is kept for the default filename/layout only; named OMV Compose files still need `--env-file crayz.env`.
 
 ## First-Run Generated Files
 
@@ -212,7 +215,7 @@ If `config/mods.txt` does not exist, CrayZ creates a commented empty mod list fo
 
 Existing config files are not overwritten.
 
-## OpenMediaVault / Linux Permissions
+## Docker Host Permissions
 
 CrayZ supports `PUID` and `PGID` so files created inside bind-mounted folders belong to the expected host user.
 
@@ -235,7 +238,7 @@ PUID=1000
 PGID=1000
 ```
 
-For OpenMediaVault, use the UID and GID of the user that should own and manage the CrayZ files.
+Use the UID and GID of the Docker host user that should own and manage the CrayZ files.
 
 At startup, CrayZ prepares the internal `dayz` user/group with those IDs, checks the mounted folders, and then drops privileges before running SteamCMD or the DayZ server.
 
@@ -310,8 +313,8 @@ CrayZ uses `0` for **disabled** and `1` for **enabled** on toggle-style settings
 
 | Variable | Default | Description |
 |---|---:|---|
-| `PUID` | `1000` | Linux user ID used inside the container. Files created in bind-mounted folders should be owned by this host user ID. Use `id yourusername` on the Docker host to find the correct value. |
-| `PGID` | `1000` | Linux group ID used inside the container. Files created in bind-mounted folders should belong to this host group ID. Use `id yourusername` on the Docker host to find the correct value. |
+| `PUID` | `1000` | Host user ID used inside the container. Files created in bind-mounted folders should be owned by this host user ID. Use `id yourusername` on the Docker host to find the correct value. |
+| `PGID` | `1000` | Host group ID used inside the container. Files created in bind-mounted folders should belong to this host group ID. Use `id yourusername` on the Docker host to find the correct value. |
 | `STEAM_USERNAME` | empty | Steam account username used by SteamCMD. Required when `DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1`. |
 | `STEAM_PASSWORD` | empty | Steam account password used by SteamCMD. Required when `DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1`. Never commit this value. |
 | `STEAM_GUARD_CODE` | empty | Optional Steam Guard verification code. Leave empty unless Steam gives you a code. If Steam asks for mobile approval instead, approve the login in the Steam mobile app and leave this empty. |
@@ -367,7 +370,7 @@ For normal repo-relative deployments, edit:
 config/serverDZ.cfg
 ```
 
-For OMV deployments using the documented absolute layout, edit:
+For deployments using the documented absolute Docker host layout, edit:
 
 ```text
 /DockerData/crayz/config/serverDZ.cfg
@@ -500,11 +503,11 @@ Check that both Steam state mounts are present and writable:
 - ./data/steam/dot-steam:/home/dayz/.steam
 ```
 
-For OMV deployments with absolute paths, use the same container targets:
+For absolute-path Docker host deployments, use the same container targets:
 
 ```yaml
-- /DockerData/crayz/steam/Steam:/home/dayz/Steam
-- /DockerData/crayz/steam/dot-steam:/home/dayz/.steam
+- /DockerData/crayz/data/steam/Steam:/home/dayz/Steam
+- /DockerData/crayz/data/steam/dot-steam:/home/dayz/.steam
 ```
 
 If Steam Guard prompts repeat after a successful approval, stop the container before further login attempts and verify these mounts. Repeated failed or repeated new-device logins can trigger Steam account protection.
