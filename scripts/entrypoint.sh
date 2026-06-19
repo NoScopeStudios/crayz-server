@@ -264,10 +264,11 @@ seed_mods_file_if_missing() {
 # Normal runtime with DAYZ_AUTO_UPDATE=0 only loads already-present folders.
 #
 # load_type:
-# client = add the folder to the DayZ -mod= parameter and copy .bikey files from keys/
+# client = add the folder to the DayZ -mod= parameter and copy .bikey files from keys/ or Keys/
 # server = add the folder to the DayZ -servermod= parameter
 #
 # Mod folders are expected under /dayz/mods/workshop inside the container.
+# CrayZ creates matching symlinks under /dayz/server and launches DayZ with relative @ModName entries.
 #
 # Examples:
 # @CF|client
@@ -292,33 +293,93 @@ trim() {
 
 copy_client_mod_keys() {
   local mod_path="$1"
-  local key_dir="$mod_path/keys"
   local server_key_dir="$SERVER_DIR/keys"
+  local key_dir
   local key_file
   local key_count=0
+  local key_dir_count=0
+  local seen_key_dir
+  local skip_key_dir
   local target_key
+  local seen_key_dirs=()
+  local key_dirs=(
+    "$mod_path/keys"
+    "$mod_path/Keys"
+  )
 
-  if [[ ! -d "$key_dir" ]]; then
-    log "Client mod $(basename "$mod_path") has no keys/ directory; no .bikey files copied."
+  for key_dir in "${key_dirs[@]}"; do
+    if [[ ! -d "$key_dir" ]]; then
+      continue
+    fi
+
+    skip_key_dir=0
+    for seen_key_dir in "${seen_key_dirs[@]}"; do
+      if [[ "$key_dir" -ef "$seen_key_dir" ]]; then
+        skip_key_dir=1
+        break
+      fi
+    done
+
+    if (( skip_key_dir == 1 )); then
+      continue
+    fi
+
+    seen_key_dirs+=("$key_dir")
+    key_dir_count=$((key_dir_count + 1))
+    mkdir -p "$server_key_dir"
+
+    while IFS= read -r -d '' key_file; do
+      key_count=$((key_count + 1))
+      target_key="$server_key_dir/$(basename "$key_file")"
+      if [[ -f "$target_key" ]] && cmp -s "$key_file" "$target_key"; then
+        log "Client mod key already current: $(basename "$key_file")"
+      else
+        cp "$key_file" "$target_key"
+        log "Copied client mod key: $(basename "$key_file")"
+      fi
+    done < <(find "$key_dir" -maxdepth 1 -type f -name '*.bikey' -print0)
+  done
+
+  if (( key_dir_count == 0 )); then
+    log "Client mod $(basename "$mod_path") has no keys/ or Keys/ directory; no .bikey files copied."
+  elif (( key_count == 0 )); then
+    log "Client mod $(basename "$mod_path") has keys/ or Keys/ directories but no .bikey files were found."
+  fi
+}
+
+warn_if_no_addons_dir() {
+  local mod_path="$1"
+
+  if [[ ! -d "$mod_path/addons" && ! -d "$mod_path/Addons" ]]; then
+    log "Mod $(basename "$mod_path") has no addons/ or Addons/ directory; verify this mod layout is expected."
+  fi
+}
+
+ensure_server_mod_link() {
+  local folder_name="$1"
+  local mod_path="$2"
+  local link_path="$SERVER_DIR/$folder_name"
+  local existing_target
+
+  if [[ -L "$link_path" ]]; then
+    existing_target="$(readlink "$link_path")"
+    if [[ "$existing_target" == "$mod_path" ]]; then
+      log "Enabled mod link already current: $link_path -> $mod_path"
+      return 0
+    fi
+
+    rm -f -- "$link_path"
+    ln -s "$mod_path" "$link_path"
+    log "Refreshed enabled mod link: $link_path -> $mod_path"
     return 0
   fi
 
-  mkdir -p "$server_key_dir"
-
-  while IFS= read -r -d '' key_file; do
-    key_count=$((key_count + 1))
-    target_key="$server_key_dir/$(basename "$key_file")"
-    if [[ -f "$target_key" ]] && cmp -s "$key_file" "$target_key"; then
-      log "Client mod key already current: $(basename "$key_file")"
-    else
-      cp "$key_file" "$target_key"
-      log "Copied client mod key: $(basename "$key_file")"
-    fi
-  done < <(find "$key_dir" -maxdepth 1 -type f -name '*.bikey' -print0)
-
-  if (( key_count == 0 )); then
-    log "Client mod $(basename "$mod_path") has a keys/ directory but no .bikey files were found."
+  if [[ -e "$link_path" ]]; then
+    fail "Cannot enable mod '$folder_name': $link_path already exists and is not a symlink. Move or remove it before starting CrayZ."
   fi
+
+  ln -s "$mod_path" "$link_path"
+  log "Created enabled mod link: $link_path -> $mod_path"
 }
 
 load_mods_file() {
@@ -394,10 +455,14 @@ load_mods_file() {
     fi
 
     if [[ "$load_type" == "client" ]]; then
-      CLIENT_MOD_PATHS+=("$mod_path")
+      ensure_server_mod_link "$folder_name" "$mod_path"
+      warn_if_no_addons_dir "$mod_path"
+      CLIENT_MOD_PATHS+=("$folder_name")
       copy_client_mod_keys "$mod_path"
     else
-      SERVER_MOD_PATHS+=("$mod_path")
+      ensure_server_mod_link "$folder_name" "$mod_path"
+      warn_if_no_addons_dir "$mod_path"
+      SERVER_MOD_PATHS+=("$folder_name")
     fi
   done < "$MODS_FILE"
 }

@@ -399,7 +399,7 @@ This controls settings such as:
 
 The human-editable mod list.
 
-This file loads enabled mod folders from:
+This file lists enabled mod folders stored under:
 
 ```text
 /dayz/mods/workshop/
@@ -411,7 +411,7 @@ For deployments using the documented absolute Docker host layout, place local mo
 /DockerData/crayz/data/mods/workshop/
 ```
 
-The Compose files mount that host folder to `/dayz/mods/workshop/` inside the container.
+The Compose files mount that host folder to `/dayz/mods/workshop/` inside the container. At startup, CrayZ creates matching symlinks under `/dayz/server/` and launches DayZ with relative server-root names such as `-mod=@CF;@BetterMovement`.
 
 Supported formats:
 
@@ -430,7 +430,7 @@ Workshop lines use `workshop_id|folder_name|load_type`. When `DAYZ_AUTO_UPDATE=1
 
 `load_type` values:
 
-* `client` adds the folder to the DayZ `-mod=` launch parameter and copies `.bikey` files from the mod's `keys/` folder into `/dayz/server/keys/`.
+* `client` adds the folder to the DayZ `-mod=` launch parameter and copies `.bikey` files from the mod's `keys/` or `Keys/` folder into `/dayz/server/keys/`.
 * `server` adds the folder to the DayZ `-servermod=` launch parameter.
 
 Examples:
@@ -442,7 +442,7 @@ Examples:
 @Some Server Mod|client
 ```
 
-CrayZ preserves the order from `mods.txt`. If a listed folder is missing, startup fails before DayZ is launched with a clear error.
+CrayZ preserves the order from `mods.txt`. If a listed folder is missing, startup fails before DayZ is launched with a clear error. If `/dayz/server/<folder_name>` already exists as a real file or directory, startup fails instead of overwriting it.
 
 Workshop download/update uses the same credentialed SteamCMD login path as server updates. Steam Guard/session persistence is still not guaranteed, so run Workshop install/update intentionally with `DAYZ_AUTO_UPDATE=1`, then return to `DAYZ_AUTO_UPDATE=0` for normal restarts.
 
@@ -472,7 +472,7 @@ During install/update, SteamCMD downloads item `1559212036` for Workshop app `22
 /dayz/mods/workshop/@CF
 ```
 
-Normal runtime with `DAYZ_AUTO_UPDATE=0` does not run SteamCMD. It only loads folders that already exist under `/dayz/mods/workshop/`.
+Normal runtime with `DAYZ_AUTO_UPDATE=0` does not run SteamCMD. It only loads folders that already exist under `/dayz/mods/workshop/`, through server-root symlinks under `/dayz/server/`.
 
 ## Starting and Stopping
 
