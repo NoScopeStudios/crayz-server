@@ -253,11 +253,15 @@ seed_mods_file_if_missing() {
   cat > "$target_mods" <<'EOF'
 # CrayZ mod list
 #
-# This file loads already-present local mod folders only.
-# SteamCMD Workshop download/update support is planned separately.
+# This file loads local mod folders and can list individual Workshop items.
 #
 # Format:
 # folder_name|load_type
+# workshop_id|folder_name|load_type
+#
+# Local-only lines require the folder to already exist.
+# Workshop lines are downloaded/updated only when DAYZ_AUTO_UPDATE=1.
+# Normal runtime with DAYZ_AUTO_UPDATE=0 only loads already-present folders.
 #
 # load_type:
 # client = add the folder to the DayZ -mod= parameter and copy .bikey files from keys/
@@ -267,6 +271,7 @@ seed_mods_file_if_missing() {
 #
 # Examples:
 # @CF|client
+# 1559212036|@CF|client
 # @VPPAdminTools|server
 # @Some Server Mod|client
 EOF
@@ -321,6 +326,11 @@ load_mods_file() {
   local raw_line
   local line
   local trimmed_line
+  local field1
+  local field2
+  local field3
+  local extra_field
+  local workshop_id
   local folder_name
   local load_type
   local mod_path
@@ -342,12 +352,29 @@ load_mods_file() {
       continue
     fi
 
-    if [[ "$trimmed_line" != *"|"* ]]; then
-      fail "Invalid mods.txt line $line_number. Expected format: folder_name|load_type"
+    field1=""
+    field2=""
+    field3=""
+    extra_field=""
+    workshop_id=""
+    IFS='|' read -r field1 field2 field3 extra_field <<< "$trimmed_line"
+
+    if [[ -n "$extra_field" ]]; then
+      fail "Invalid mods.txt line $line_number. Expected format: folder_name|load_type or workshop_id|folder_name|load_type"
     fi
 
-    folder_name="$(trim "${trimmed_line%%|*}")"
-    load_type="$(trim "${trimmed_line#*|}")"
+    if [[ -n "$field3" ]]; then
+      workshop_id="$(trim "$field1")"
+      folder_name="$(trim "$field2")"
+      load_type="$(trim "$field3")"
+
+      if [[ ! "$workshop_id" =~ ^[0-9]+$ ]]; then
+        fail "Invalid mods.txt line $line_number. Workshop ID must be numeric."
+      fi
+    else
+      folder_name="$(trim "$field1")"
+      load_type="$(trim "$field2")"
+    fi
 
     if [[ -z "$folder_name" ]]; then
       fail "Invalid mods.txt line $line_number. Mod folder name is empty."

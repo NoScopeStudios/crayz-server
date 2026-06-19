@@ -13,7 +13,7 @@ Supported platform note: after this introduction, the documentation generally re
 
 It is designed to make running a DayZ server less painful by keeping the server files, SteamCMD state, profiles, logs, and configuration in predictable persistent folders.
 
-CrayZ is currently focused on a reliable vanilla DayZ server setup first. Workshop mod support is planned, but should only be used once the base server install and login flow are proven stable.
+CrayZ is currently focused on a reliable vanilla DayZ server setup first, with layered mod support added only after the base server install and login flow are proven stable.
 
 ## What CrayZ Does
 
@@ -26,13 +26,14 @@ CrayZ provides:
 * Persistent logs under `data/logs/`.
 * Persistent Steam login/session state under `data/steam/`.
 * Local DayZ mod loading from already-present folders under `data/mods/workshop/`.
+* SteamCMD Workshop download/update for individually listed mod IDs during install/update mode.
 * First-run creation of default config files when missing.
 * PUID/PGID support for Docker bind mounts.
 * Credentialed SteamCMD login for installing/updating the DayZ server.
 
 ## Current Status
 
-CrayZ currently targets a reliable vanilla DayZ Dedicated Server baseline with first-stage local mod loading.
+CrayZ currently targets a reliable vanilla DayZ Dedicated Server baseline with local mod loading and individual Workshop mod download/update.
 
 Implemented:
 
@@ -43,11 +44,12 @@ Implemented:
 * First-run config seeding.
 * PUID/PGID permission support.
 * Local mod folder loading from `config/mods.txt`.
+* Individual Steam Workshop mod download/update from `config/mods.txt`.
 
 Not implemented yet:
 
-* Workshop mod download/update support.
 * Workshop collection support.
+* Automatic mod dependency resolution.
 * RCON dashboard.
 * Web UI.
 * Hosting-panel style management.
@@ -139,7 +141,7 @@ Do not commit or share your `.env` file.
 
 CrayZ separates install/update mode from normal runtime mode.
 
-First install or manual update:
+First install or manual server/Workshop update:
 
 1. Set `DAYZ_AUTO_UPDATE=1`.
 2. Start the container in the foreground.
@@ -154,7 +156,7 @@ Normal runtime:
 2. Confirm logs show `Skipping SteamCMD update because DAYZ_AUTO_UPDATE is not 1.`
 3. Confirm logs show `Starting vanilla DayZ server on UDP port 2302.`
 
-Future manual update:
+Future manual server/Workshop update:
 
 1. Temporarily set `DAYZ_AUTO_UPDATE=1`.
 2. Run one update.
@@ -306,6 +308,8 @@ DAYZ_ALLOW_STEAM_CREDENTIAL_LOGIN=1
 DAYZ_SERVER_PORT=2302
 DAYZ_STEAM_QUERY_PORT=27016
 DAYZ_SERVER_CONFIG=serverDZ.cfg
+DAYZ_STEAM_APP_ID=223350
+DAYZ_WORKSHOP_APP_ID=221100
 DAYZ_VALIDATE_INSTALL=1
 DAYZ_AUTO_UPDATE=1
 DAYZ_EXTRA_ARGS=
@@ -328,6 +332,7 @@ CrayZ uses `0` for **disabled** and `1` for **enabled** on toggle-style settings
 | `DAYZ_STEAM_QUERY_PORT` | `27016` | UDP Steam server browser query port exposed by Docker. |
 | `DAYZ_SERVER_CONFIG` | `serverDZ.cfg` | Config filename inside `config/` that DayZ should use. Most users should leave this as `serverDZ.cfg`. |
 | `DAYZ_STEAM_APP_ID` | `223350` | Steam app ID for the DayZ Dedicated Server. Most users should not change this. |
+| `DAYZ_WORKSHOP_APP_ID` | `221100` | Steam Workshop app ID used when downloading DayZ Workshop items. This is separate from `DAYZ_STEAM_APP_ID`. |
 | `DAYZ_VALIDATE_INSTALL` | `1` | Controls SteamCMD file validation during install/update. `1` validates server files and can repair missing or corrupted files. `0` skips validation and may be faster. |
 | `DAYZ_AUTO_UPDATE` | `1` | Controls startup update behavior. `1` is install/update mode and runs SteamCMD once at container start. `0` is normal runtime mode and skips SteamCMD, then starts the existing installed server files. |
 | `DAYZ_EXTRA_ARGS` | empty | Optional extra command-line arguments appended to the DayZ server launch command. Advanced users only. |
@@ -392,9 +397,9 @@ This controls settings such as:
 
 ### `config/mods.txt`
 
-The human-editable local mod list.
+The human-editable mod list.
 
-This file loads already-present local mod folders from:
+This file loads enabled mod folders from:
 
 ```text
 /dayz/mods/workshop/
@@ -408,13 +413,20 @@ For deployments using the documented absolute Docker host layout, place local mo
 
 The Compose files mount that host folder to `/dayz/mods/workshop/` inside the container.
 
-Format:
+Supported formats:
 
 ```text
 folder_name|load_type
+workshop_id|folder_name|load_type
 ```
 
 Blank lines and lines starting with `#` are ignored.
+
+Local-only lines use `folder_name|load_type`. The folder must already exist under `/dayz/mods/workshop/`.
+
+Workshop lines use `workshop_id|folder_name|load_type`. When `DAYZ_AUTO_UPDATE=1`, CrayZ downloads or updates the item with SteamCMD and syncs it into `/dayz/mods/workshop/<folder_name>`. When `DAYZ_AUTO_UPDATE=0`, SteamCMD is skipped and CrayZ only loads the already-present local folder.
+
+`workshop_id` must be numeric. `DAYZ_WORKSHOP_APP_ID=221100` is used for DayZ Workshop item downloads. `DAYZ_STEAM_APP_ID=223350` remains the DayZ Dedicated Server app ID.
 
 `load_type` values:
 
@@ -425,13 +437,42 @@ Examples:
 
 ```text
 @CF|client
+1559212036|@CF|client
 @VPPAdminTools|server
 @Some Server Mod|client
 ```
 
 CrayZ preserves the order from `mods.txt`. If a listed folder is missing, startup fails before DayZ is launched with a clear error.
 
-This feature does not download or update Workshop content. Copy or sync mod folders into the host `data/mods/workshop/` folder yourself for now. SteamCMD Workshop download/update support is planned separately.
+Workshop download/update uses the same credentialed SteamCMD login path as server updates. Steam Guard/session persistence is still not guaranteed, so run Workshop install/update intentionally with `DAYZ_AUTO_UPDATE=1`, then return to `DAYZ_AUTO_UPDATE=0` for normal restarts.
+
+Workshop collections and automatic dependency resolution are not supported yet. List each Workshop item explicitly.
+
+## Workshop Mod Install/Update
+
+To install or update individual Workshop mods:
+
+1. Add Workshop lines to `config/mods.txt`.
+2. Set `DAYZ_AUTO_UPDATE=1` in `.env`.
+3. Start the container and approve Steam Guard if Steam asks.
+4. Wait for SteamCMD to finish and for CrayZ to sync the listed Workshop items.
+5. Stop the container.
+6. Set `DAYZ_AUTO_UPDATE=0`.
+7. Restart normally.
+
+Example:
+
+```text
+1559212036|@CF|client
+```
+
+During install/update, SteamCMD downloads item `1559212036` for Workshop app `221100`, then CrayZ syncs it into:
+
+```text
+/dayz/mods/workshop/@CF
+```
+
+Normal runtime with `DAYZ_AUTO_UPDATE=0` does not run SteamCMD. It only loads folders that already exist under `/dayz/mods/workshop/`.
 
 ## Starting and Stopping
 
@@ -492,7 +533,7 @@ data/logs/
   Server logs.
 
 data/mods/workshop/
-  Already-present local DayZ mod folders mounted to /dayz/mods/workshop.
+  Local and synced Workshop DayZ mod folders mounted to /dayz/mods/workshop.
 
 data/steam/
   SteamCMD login/session state.
@@ -611,4 +652,4 @@ CrayZ is not a commercial hosting panel or web dashboard.
 
 The goal is to provide a reliable, understandable, self-hosted Docker setup for DayZ Dedicated Server hosting.
 
-SteamCMD Workshop download/update support is planned, but the base server install, local mod loading, Steam login safety, permissions, and restart behavior are the foundation.
+Workshop collection support is planned, but the base server install, local mod loading, individual Workshop mod updates, Steam login safety, permissions, and restart behavior are the foundation.
