@@ -404,6 +404,94 @@ steamQueryPort = 27016;
 
 Fresh CrayZ-generated configs include it. Existing configs are not overwritten, so older `config/serverDZ.cfg` files may need this line added manually.
 
+### Custom mission files and SteamCMD validation
+
+DayZ mission and Central Economy files are highly user-editable, but the location matters. SteamCMD validation treats the installed DayZ server files as managed game/server content. If you edit the default mission directly inside the Steam-managed server install and later run an update or validation pass, SteamCMD may restore those files to the official vanilla version.
+
+The most common files affected are mission and economy files such as:
+
+```text
+types.xml
+cfgspawnabletypes.xml
+events.xml
+globals.xml
+cfgeventspawns.xml
+cfgrandompresets.xml
+cfgplayerspawnpoints.xml
+cfggameplay.json
+cfgweather.xml
+messages.xml
+init.c
+```
+
+Recommended pattern: keep your edited mission as a custom mission, with a separate folder name, and treat that custom copy as your source of truth. Do not keep long-term custom economy work only in the default vanilla mission folder.
+
+Typical default mission folder inside the installed server files:
+
+```text
+/dayz/server/mpmissions/dayzOffline.chernarusplus/
+```
+
+Recommended custom source folder for CrayZ deployments using the documented absolute Docker host layout:
+
+```text
+/DockerData/crayz/config/mpmissions/dayzOffline_crayz.chernarusplus/
+```
+
+The mission folder name should keep the real map suffix after the dot. For Chernarus, use a folder name ending in:
+
+```text
+.chernarusplus
+```
+
+For example:
+
+```text
+dayzOffline_crayz.chernarusplus
+dayzOffline_myserver.chernarusplus
+dayzOffline_survivalplus.chernarusplus
+```
+
+Then point `config/serverDZ.cfg` at the custom mission template:
+
+```cpp
+class Missions
+{
+    class DayZ
+    {
+        template = "dayzOffline_crayz.chernarusplus";
+    };
+};
+```
+
+The value of `template` must match the custom mission folder name. The part after the dot tells the DayZ engine which terrain/mission world is being loaded, so it must remain a valid DayZ terrain suffix such as `chernarusplus`.
+
+A practical first-time setup on the Docker host:
+
+```bash
+mkdir -p /DockerData/crayz/config/mpmissions
+cp -a /DockerData/crayz/data/server/mpmissions/dayzOffline.chernarusplus /DockerData/crayz/config/mpmissions/dayzOffline_crayz.chernarusplus
+```
+
+DayZ normally loads missions from the server `mpmissions` directory. If your custom mission source lives under `config/mpmissions`, copy or sync it into the runtime mission location after server updates and before normal runtime:
+
+```bash
+mkdir -p /DockerData/crayz/data/server/mpmissions
+rsync -a --delete /DockerData/crayz/config/mpmissions/dayzOffline_crayz.chernarusplus/ /DockerData/crayz/data/server/mpmissions/dayzOffline_crayz.chernarusplus/
+```
+
+After changing `serverDZ.cfg` or mission files, restart the container.
+
+Safe operating rule:
+
+* Use `DAYZ_AUTO_UPDATE=1` for intentional SteamCMD install/update/validate runs.
+* Keep your custom mission source under `config/mpmissions/`.
+* After an update/validate run, re-sync the custom mission into `data/server/mpmissions/` if needed.
+* Use `DAYZ_AUTO_UPDATE=0` for normal runtime.
+* Back up custom mission files before heavy economy, loot, weather, or spawn tuning.
+
+This avoids losing custom `types.xml`, BBP/MMG economy entries, weather settings, server messages, login/logout timers, and other mission edits during SteamCMD validation.
+
 ### `config/mods.txt`
 
 The human-editable mod list.
@@ -708,6 +796,13 @@ steamQueryPort = 27016;
 The native DayZ launcher and Steam server browser use the query path to discover the server. DZSA/DZLauncher should also be checked or submitted with `<public-ip-or-domain>:27016`, not the direct-connect game port. DZSA uses its own index/list behavior, so it may take time and a launcher restart before the server appears.
 
 Confirmed CrayZ troubleshooting result: public direct connect worked on `2302/udp`, Docker/NAT exposed `27016/udp`, and native DayZ launcher visibility started working after adding `steamQueryPort = 27016;` to the active `/DockerData/crayz/config/serverDZ.cfg`.
+
+
+### Custom mission edits disappear after SteamCMD update or validation
+
+If edited files such as `types.xml`, `globals.xml`, `cfgweather.xml`, or `messages.xml` keep reverting, they are probably being edited only in the SteamCMD-managed default mission folder. SteamCMD validation can restore official server files during install/update mode.
+
+Use a custom mission folder and point `config/serverDZ.cfg` to it with the `template` setting. Keep the editable source under `config/mpmissions/`, then copy or sync that custom mission into `data/server/mpmissions/` after intentional update/validate runs. See the Configuration section above for the recommended custom mission layout.
 
 ### DayZ reports missing instanceId
 
